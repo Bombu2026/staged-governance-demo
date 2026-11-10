@@ -1,7 +1,8 @@
 "use client";
 
-import { type KeyboardEvent, useReducer, useState } from "react";
-import { initialState, reduce } from "@/lib/governance";
+import { type KeyboardEvent, useCallback, useReducer, useState } from "react";
+import { type Action, type State, initialState, reduce } from "@/lib/governance";
+import { type DevnetEvent, DevnetPanel } from "./devnet/devnet-panel";
 import { EventLog } from "./event-log";
 import { StageToken } from "./stage-token";
 import { StageUpgrade } from "./stage-upgrade";
@@ -9,11 +10,11 @@ import { StageVote } from "./stage-vote";
 import { useVault, VaultHeaderButton, VaultHeroButton, VaultHost } from "./vault/vault-launcher";
 
 const NOTICE =
-  "Independent concept demo made for the Slop team. Everything is simulated in your browser: no wallet, no chain, no funds. Not affiliated with or endorsed by slop.cash.";
+  "Independent concept demo made for the Slop team. The simulation runs in your browser; the optional live mode uses Solana devnet only, where SOL has no value. Not affiliated with or endorsed by slop.cash.";
 
 const STAGES = [
   { id: "upgrade", n: 1, title: "Guard the upgrade key", note: "Simulated" },
-  { id: "vote", n: 2, title: "Advisory contributor vote", note: "Simulated" },
+  { id: "vote", n: 2, title: "Proof of Love vote", note: "Simulated" },
   { id: "token", n: 3, title: "Token governance", note: "Design question" },
 ] as const;
 
@@ -21,10 +22,20 @@ type StageId = (typeof STAGES)[number]["id"];
 
 const SHELL = "mx-auto w-full max-w-[1440px] px-4 sm:px-8 lg:px-12 xl:px-16";
 
+type DemoAction = Action | { type: "devnet"; event: DevnetEvent };
+
+// Live devnet events only append to the shared log; every simulated action still goes through `reduce`.
+function reduceDemo(state: State, action: DemoAction): State {
+  if (action.type !== "devnet") return reduce(state, action);
+  const { time, signature, ...entry } = action.event;
+  return { ...state, log: [...state.log, { seq: state.log.length + 1, hour: state.clock, ...entry, devnet: { time, signature } }] };
+}
+
 export function Demo() {
-  const [state, dispatch] = useReducer(reduce, initialState);
+  const [state, dispatch] = useReducer(reduceDemo, initialState);
   const [stage, setStage] = useState<StageId>("upgrade");
   const vault = useVault();
+  const onDevnetEvent = useCallback((event: DevnetEvent) => dispatch({ type: "devnet", event }), []);
 
   function onTabKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -133,7 +144,12 @@ export function Demo() {
             <div className="min-w-0">
               {STAGES.map((s) => (
                 <div key={s.id} id={`panel-${s.id}`} role="tabpanel" aria-labelledby={`tab-${s.id}`} hidden={s.id !== stage}>
-                  {s.id === "upgrade" && <StageUpgrade state={state} dispatch={dispatch} />}
+                  {s.id === "upgrade" && (
+                    <div className="space-y-10">
+                      <StageUpgrade state={state} dispatch={dispatch} />
+                      <DevnetPanel onEvent={onDevnetEvent} />
+                    </div>
+                  )}
                   {s.id === "vote" && <StageVote state={state} dispatch={dispatch} />}
                   {s.id === "token" && <StageToken />}
                 </div>

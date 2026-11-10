@@ -8,7 +8,7 @@ const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], v
 export const metadata: Metadata = {
   title: "Staged governance: a concept demo for Slop",
   description:
-    "Independent, fully simulated walkthrough of a staged governance path: multisig and timelock on upgrades, advisory contributor votes, token governance later.",
+    "Independent concept demo of a staged governance path: multisig and timelock on upgrades, an advisory Proof of Love vote, token governance later. The simulation runs in your browser; an optional live mode uses Solana devnet only. Not affiliated with or endorsed by slop.cash.",
   robots: { index: false, follow: false },
 };
 

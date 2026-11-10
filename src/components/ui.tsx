@@ -23,10 +23,10 @@ export function Badge({ tone = "neutral", children }: { tone?: Tone; children: R
   );
 }
 
-export function SampleTag() {
+export function SampleTag({ label = "Sample data" }: { label?: string }) {
   return (
     <span className="whitespace-nowrap rounded-full border border-dashed border-line-strong px-2.5 py-[3px] font-mono text-[11px] font-medium uppercase leading-none tracking-wider text-muted">
-      Sample data
+      {label}
     </span>
   );
 }

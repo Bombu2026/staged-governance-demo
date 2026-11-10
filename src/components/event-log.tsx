@@ -1,3 +1,4 @@
+import { explorerTxUrl } from "@/lib/devnet/format";
 import type { LogEntry } from "@/lib/governance";
 import { Badge } from "./ui";
 
@@ -33,12 +34,29 @@ export function EventLog({ log }: { log: LogEntry[] }) {
                 }`}
               >
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
-                  <span className="font-medium tabular-nums">{hour(e.hour)}</span>
+                  {e.devnet ? (
+                    <>
+                      <Badge tone="accent">Devnet</Badge>
+                      <span className="font-medium tabular-nums">{e.devnet.time}</span>
+                    </>
+                  ) : (
+                    <span className="font-medium tabular-nums">{hour(e.hour)}</span>
+                  )}
                   <span className="font-bold text-ink">{e.actor}</span>
                   {e.refusal && <Badge tone="danger">Refused</Badge>}
                 </p>
                 <p className="mt-1.5 text-[15px] leading-snug">{e.text}</p>
                 {e.refusal && <p className="mt-1.5 text-sm leading-snug text-danger">Why: {e.refusal}</p>}
+                {e.devnet?.signature && (
+                  <a
+                    href={explorerTxUrl(e.devnet.signature)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-block font-mono text-xs text-accent underline decoration-accent/40 underline-offset-2 hover:text-accent-hover"
+                  >
+                    View transaction on Solana Explorer (devnet)
+                  </a>
+                )}
               </li>
             ))}
           </ol>

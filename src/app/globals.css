@@ -47,6 +47,28 @@
   background-image: repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 6px);
 }
 
+/* Domain fills for the Proof of Love bars: each domain keeps its pattern, colour only marks the proposal's domain. */
+@utility pat-solid {
+  background-color: currentColor;
+}
+
+@utility pat-hatch {
+  background-color: var(--raised);
+  background-image: repeating-linear-gradient(135deg, currentColor 0 2px, transparent 2px 5px);
+}
+
+@utility pat-dots {
+  background-color: var(--raised);
+  background-image: radial-gradient(circle, currentColor 1.6px, transparent 2px);
+  background-size: 6px 6px;
+  background-position: center;
+}
+
+@utility pat-lines {
+  background-color: var(--raised);
+  background-image: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 5px);
+}
+
 @utility display {
   font-weight: 800;
   text-transform: uppercase;

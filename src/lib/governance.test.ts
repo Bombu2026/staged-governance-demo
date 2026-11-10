@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  type Action,
-  type State,
-  etaOf,
-  initialState,
-  meetsQuorum,
-  reduce,
-  TIMELOCK_HOURS,
-  TOTAL_POINTS,
-} from "./governance";
+import { type Action, type State, emptyVote, etaOf, initialState, reduce, TIMELOCK_HOURS } from "./governance";
+import { type Choice, type Handle, type ProposalId, compareRules, powerTally } from "./vote";
 
 const run = (actions: Action[], from: State = initialState) => actions.reduce(reduce, from);
 const proposed = run([{ type: "setMode", mode: "proposed" }]);
@@ -207,83 +199,76 @@ describe("mode switch", () => {
   });
 });
 
-describe("advisory contributor vote", () => {
-  it("treats exactly 40% of Points as quorum", () => {
-    expect(TOTAL_POINTS).toBe(1_100);
-    expect(meetsQuorum(440, 1_100)).toBe(true);
-    expect(meetsQuorum(439, 1_100)).toBe(false);
+describe("Proof of Love vote", () => {
+  const P1: ProposalId = "upgrade-delay";
+  const P2: ProposalId = "spam-penalty";
+  const cast = (proposal: ProposalId, votes: [Handle, Choice][]): Action[] =>
+    votes.map(([handle, choice]) => ({ type: "castVote", proposal, handle, choice }));
+  const close = (proposal: ProposalId): Action => ({ type: "closeVote", proposal });
+
+  it("tips quorum on power, not on Points", () => {
+    const below = run([...cast(P1, [["contributor-a", "for"], ["contributor-b", "against"]]), close(P1)]);
+    expect(below.votes[P1].outcome).toBe("no-quorum");
+    const t = powerTally(below.votes[P1].choices, "security");
+    expect(t.cast).toBeLessThan(t.quorum);
+    const newcomerTips = run([
+      ...cast(P1, [["contributor-a", "for"], ["contributor-b", "against"], ["contributor-g", "abstain"]]),
+      close(P1),
+    ]);
+    expect(newcomerTips.votes[P1].outcome).toBe("passed");
+    expect(powerTally(newcomerTips.votes[P1].choices, "security").quorumMet).toBe(true);
+  });
+
+  it("passes when For outweighs Against and rejects otherwise", () => {
+    const passed = run([...cast(P1, [["contributor-a", "for"], ["contributor-d", "against"]]), close(P1)]);
+    expect(passed.votes[P1].outcome).toBe("passed");
+    const rejected = run([...cast(P1, [["contributor-a", "against"], ["contributor-d", "for"]]), close(P1)]);
+    expect(rejected.votes[P1].outcome).toBe("rejected");
+    const noQuorum = run([close(P1)]);
+    expect(noQuorum.votes[P1].outcome).toBe("no-quorum");
+  });
+
+  it("keeps each proposal's votes and state separate", () => {
+    const s = run([...cast(P1, [["contributor-a", "for"], ["contributor-d", "for"]]), close(P1), ...cast(P2, [["contributor-e", "against"]])]);
+    expect(s.votes[P1]).toMatchObject({ closed: true, outcome: "passed" });
+    expect(s.votes[P2]).toMatchObject({ closed: false, outcome: null });
+    expect(s.votes[P2].choices["contributor-e"]).toBe("against");
+    expect(s.votes[P2].choices["contributor-a"]).toBe("none");
+    expect(s.votes["review-cap"]).toEqual(emptyVote);
+    expectRefused(s, { type: "castVote", proposal: P1, handle: "contributor-b", choice: "for" });
+
+    const reopened = run([{ type: "reopenVote", proposal: P1 }], s);
+    expect(reopened.votes[P1]).toEqual(emptyVote);
+    expect(reopened.votes[P2]).toEqual(s.votes[P2]);
+    expectRefused(reopened, { type: "reopenVote", proposal: P1 });
+    expect(run([close(P1), close(P1)], reopened).log.at(-1)?.refusal).toEqual(expect.any(String));
+  });
+
+  it("allows adopt or veto only after a pass, once, and only on that proposal", () => {
+    const passed = run([...cast(P1, [["contributor-a", "for"], ["contributor-d", "for"]]), close(P1)]);
+    expectRefused(initialState, { type: "decide", proposal: P1, decision: "adopted" });
+    expectRefused(passed, { type: "decide", proposal: P2, decision: "adopted" });
+    const adopted = run([{ type: "decide", proposal: P1, decision: "adopted" }], passed);
+    expect(adopted.votes[P1].decision).toBe("adopted");
+    expectRefused(adopted, { type: "decide", proposal: P1, decision: "vetoed" });
+    const vetoed = run([{ type: "decide", proposal: P1, decision: "vetoed" }], passed);
+    expect(vetoed.votes[P1].decision).toBe("vetoed");
+
+    const rejected = run([...cast(P1, [["contributor-a", "against"], ["contributor-d", "for"]]), close(P1)]);
+    expectRefused(rejected, { type: "decide", proposal: P1, decision: "adopted" });
+    const noQuorum = run([close(P1)]);
+    expectRefused(noQuorum, { type: "decide", proposal: P1, decision: "vetoed" });
+  });
+
+  it("logs the power used and the 1 Point = 1 vote outcome at close", () => {
     const s = run([
-      { type: "castVote", handle: "contributor-b", choice: "for" },
-      { type: "castVote", handle: "contributor-d", choice: "against" },
-      { type: "castVote", handle: "contributor-f", choice: "abstain" },
-      { type: "closeVote" },
+      ...cast(P1, [["contributor-a", "for"], ["contributor-e", "against"], ["contributor-f", "abstain"]]),
+      close(P1),
     ]);
-    expect(s.vote.outcome).toBe("passed");
-  });
-
-  it("reports no quorum below 40%", () => {
-    const s = run([{ type: "castVote", handle: "contributor-a", choice: "for" }, { type: "closeVote" }]);
-    expect(s.vote.outcome).toBe("no-quorum");
-  });
-
-  it("rejects when against wins or ties", () => {
-    const against = run([
-      { type: "castVote", handle: "contributor-a", choice: "against" },
-      { type: "castVote", handle: "contributor-b", choice: "for" },
-      { type: "closeVote" },
-    ]);
-    expect(against.vote.outcome).toBe("rejected");
-    const tie = run([
-      { type: "castVote", handle: "contributor-c", choice: "for" },
-      { type: "castVote", handle: "contributor-d", choice: "against" },
-      { type: "castVote", handle: "contributor-e", choice: "against" },
-      { type: "castVote", handle: "contributor-f", choice: "against" },
-      { type: "castVote", handle: "contributor-b", choice: "abstain" },
-      { type: "closeVote" },
-    ]);
-    expect(tie.vote.outcome).toBe("rejected");
-  });
-
-  it("freezes votes once closed and reopens to a clean slate", () => {
-    const closed = run([{ type: "castVote", handle: "contributor-a", choice: "for" }, { type: "closeVote" }]);
-    expectRefused(closed, { type: "castVote", handle: "contributor-b", choice: "for" });
-    expectRefused(closed, { type: "closeVote" });
-    const reopened = run([{ type: "reopenVote" }], closed);
-    expect(reopened.vote).toEqual(initialState.vote);
-    expectRefused(reopened, { type: "reopenVote" });
-  });
-
-  const passed = run([
-    { type: "castVote", handle: "contributor-a", choice: "for" },
-    { type: "castVote", handle: "contributor-b", choice: "against" },
-    { type: "castVote", handle: "contributor-c", choice: "for" },
-    { type: "closeVote" },
-  ]);
-
-  it("allows adopt or veto only after a passed vote, once", () => {
-    expect(passed.vote.outcome).toBe("passed");
-    const adopted = run([{ type: "decide", decision: "adopted" }], passed);
-    expect(adopted.vote.decision).toBe("adopted");
-    expectRefused(adopted, { type: "decide", decision: "vetoed" });
-    const vetoed = run([{ type: "decide", decision: "vetoed" }], passed);
-    expect(vetoed.vote.decision).toBe("vetoed");
-  });
-
-  it("refuses adopt or veto while open, after a rejection or without quorum", () => {
-    expectRefused(initialState, { type: "decide", decision: "adopted" });
-    const rejected = run([
-      { type: "castVote", handle: "contributor-a", choice: "against" },
-      { type: "closeVote" },
-      { type: "reopenVote" },
-      { type: "castVote", handle: "contributor-a", choice: "against" },
-      { type: "castVote", handle: "contributor-b", choice: "for" },
-      { type: "closeVote" },
-    ]);
-    expect(rejected.vote.outcome).toBe("rejected");
-    expectRefused(rejected, { type: "decide", decision: "vetoed" });
-    const noQuorum = run([{ type: "closeVote" }]);
-    expect(noQuorum.vote.outcome).toBe("no-quorum");
-    expectRefused(noQuorum, { type: "decide", decision: "adopted" });
+    expect(s.log[0].text).toContain("power 20.62 (√425 effective Points)");
+    expect(s.votes[P1].outcome).toBe("passed");
+    expect(compareRules(s.votes[P1].choices, "security").pointsOutcome).toBe("rejected");
+    expect(last(s).text).toContain("Passed (advisory). The same ballots under 1 Point = 1 vote: Rejected (advisory).");
   });
 });
 

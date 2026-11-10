@@ -1,7 +1,23 @@
+import {
+  type Ballots,
+  type Choice,
+  type Handle,
+  type Outcome,
+  type ProposalId,
+  CONTRIBUTORS,
+  DOMAIN_LABEL,
+  OUTCOME_LABEL,
+  PROPOSALS,
+  compareRules,
+  contributorOf,
+  effectivePoints,
+  formatPower,
+  proposalOf,
+  votingPower,
+} from "./vote";
+
 export type Mode = "today" | "proposed";
 export type SignerId = "A" | "B" | "I";
-export type Choice = "for" | "against" | "abstain" | "none";
-export type Outcome = "no-quorum" | "passed" | "rejected";
 export type Decision = "adopted" | "vetoed";
 
 export const SIGNERS: readonly { id: SignerId; label: string }[] = [
@@ -19,19 +35,6 @@ export const MODE_LABEL: Record<Mode, string> = {
   today: "Today: single key",
   proposed: "Proposed: 2-of-3 multisig + 48 h timelock",
 };
-
-export const CONTRIBUTORS = [
-  { handle: "contributor-a", points: 420 },
-  { handle: "contributor-b", points: 310 },
-  { handle: "contributor-c", points: 180 },
-  { handle: "contributor-d", points: 90 },
-  { handle: "contributor-e", points: 60 },
-  { handle: "contributor-f", points: 40 },
-] as const;
-export type Handle = (typeof CONTRIBUTORS)[number]["handle"];
-export const TOTAL_POINTS = CONTRIBUTORS.reduce((sum, c) => sum + c.points, 0);
-export const QUORUM_PERCENT = 40;
-export const PROPOSAL_TITLE = "Lower the Spam penalty from 30 to 20 Points";
 
 export interface Upgrade {
   to: number;
@@ -65,8 +68,9 @@ export interface Vault {
   unpauseVotes: SignerId[];
 }
 
+// One ballot box per sample proposal; switching proposals in the UI keeps each one's votes and state.
 export interface Vote {
-  choices: Record<Handle, Choice>;
+  choices: Ballots;
   closed: boolean;
   outcome: Outcome | null;
   decision: Decision | null;
@@ -78,6 +82,8 @@ export interface LogEntry {
   actor: string;
   text: string;
   refusal: string | null;
+  // Present only on entries from the live devnet panel: wall-clock time and the transaction signature, if any.
+  devnet?: { time: string; signature: string | null };
 }
 
 export interface State {
@@ -86,7 +92,7 @@ export interface State {
   vault: Vault;
   upgrade: Upgrade | null;
   history: UpgradeRecord[];
-  vote: Vote;
+  votes: Record<ProposalId, Vote>;
   log: LogEntry[];
 }
 
@@ -103,13 +109,15 @@ export type Action =
   | { type: "unpause"; signer: SignerId }
   | { type: "withdraw" }
   | { type: "deposit" }
-  | { type: "castVote"; handle: Handle; choice: Choice }
-  | { type: "closeVote" }
-  | { type: "decide"; decision: Decision }
-  | { type: "reopenVote" }
+  | { type: "castVote"; proposal: ProposalId; handle: Handle; choice: Choice }
+  | { type: "closeVote"; proposal: ProposalId }
+  | { type: "decide"; proposal: ProposalId; decision: Decision }
+  | { type: "reopenVote"; proposal: ProposalId }
   | { type: "reset" };
 
 const emptyChoices = Object.fromEntries(CONTRIBUTORS.map((c) => [c.handle, "none"])) as Record<Handle, Choice>;
+export const emptyVote: Vote = { choices: emptyChoices, closed: false, outcome: null, decision: null };
+const emptyVotes = Object.fromEntries(PROPOSALS.map((p) => [p.id, emptyVote])) as Record<ProposalId, Vote>;
 
 export const initialState: State = {
   clock: 0,
@@ -126,7 +134,7 @@ export const initialState: State = {
   },
   upgrade: null,
   history: [],
-  vote: { choices: emptyChoices, closed: false, outcome: null, decision: null },
+  votes: emptyVotes,
   log: [],
 };
 
@@ -140,47 +148,9 @@ export const etaOf = (upgrade: Upgrade | null) =>
 
 export const statusOf = (upgrade: Upgrade) => (upgrade.queuedAt === null ? "pending" : "queued");
 
-export const pointsOf = (handle: Handle) => CONTRIBUTORS.find((c) => c.handle === handle)?.points ?? 0;
-
-export const quorumPoints = (total: number) => Math.ceil((total * QUORUM_PERCENT) / 100);
-
-export const meetsQuorum = (cast: number, total: number) => cast * 100 >= total * QUORUM_PERCENT;
-
-export interface Tally {
-  for: number;
-  against: number;
-  abstain: number;
-  cast: number;
-  total: number;
-  quorum: number;
-  quorumMet: boolean;
-}
-
-export function tally(choices: Record<Handle, Choice>): Tally {
-  const sums = { for: 0, against: 0, abstain: 0 };
-  for (const c of CONTRIBUTORS) {
-    const choice = choices[c.handle];
-    if (choice !== "none") sums[choice] += c.points;
-  }
-  const cast = sums.for + sums.against + sums.abstain;
-  return {
-    ...sums,
-    cast,
-    total: TOTAL_POINTS,
-    quorum: quorumPoints(TOTAL_POINTS),
-    quorumMet: meetsQuorum(cast, TOTAL_POINTS),
-  };
-}
-
-export function outcomeOf(t: Tally): Outcome {
-  if (!t.quorumMet) return "no-quorum";
-  return t.for > t.against ? "passed" : "rejected";
-}
-
-export const OUTCOME_LABEL: Record<Outcome, string> = {
-  "no-quorum": "No quorum",
-  passed: "Passed (advisory)",
-  rejected: "Rejected (advisory)",
+const proposalTag = (id: ProposalId) => {
+  const p = proposalOf(id);
+  return `proposal ${p.n} (${DOMAIN_LABEL[p.domain]})`;
 };
 
 const CHOICE_LABEL: Record<Choice, string> = {
@@ -191,7 +161,7 @@ const CHOICE_LABEL: Record<Choice, string> = {
 };
 
 export function refusal(state: State, action: Action): string | null {
-  const { vault, upgrade, mode, vote } = state;
+  const { vault, upgrade, mode, votes } = state;
   switch (action.type) {
     case "setMode":
       return action.mode === mode ? "Already in this mode." : null;
@@ -237,19 +207,23 @@ export function refusal(state: State, action: Action): string | null {
       if (vault.paused) return "Deposits are blocked while the vault is paused.";
       if (vault.compromised) return "The live escrow logic is attacker-written: this demo refuses new deposits into it.";
       return null;
-    case "castVote":
-      if (vote.closed) return "The vote is closed. Reopen it to change votes.";
+    case "castVote": {
+      const vote = votes[action.proposal];
+      if (vote.closed) return `The vote on proposal ${proposalOf(action.proposal).n} is closed. Reopen it to change votes.`;
       if (vote.choices[action.handle] === action.choice) return "No change: this vote is already recorded.";
       return null;
+    }
     case "closeVote":
-      return vote.closed ? "The vote is already closed." : null;
-    case "decide":
+      return votes[action.proposal].closed ? `The vote on proposal ${proposalOf(action.proposal).n} is already closed.` : null;
+    case "decide": {
+      const vote = votes[action.proposal];
       if (!vote.closed) return "Close the vote first.";
       if (vote.outcome !== "passed") return "Moderators adopt or veto only after a passed vote.";
       if (vote.decision) return `Moderators already ${vote.decision} this proposal.`;
       return null;
+    }
     case "reopenVote":
-      return vote.closed ? null : "The vote is already open.";
+      return votes[action.proposal].closed ? null : `The vote on proposal ${proposalOf(action.proposal).n} is already open.`;
     case "reset":
       return null;
   }
@@ -314,13 +288,13 @@ function attemptOf(action: Action): string {
     case "deposit":
       return `Deposit ${formatAmount(DEPOSIT_AMOUNT)} USDC`;
     case "castVote":
-      return `Vote ${CHOICE_LABEL[action.choice]}`;
+      return `Vote ${CHOICE_LABEL[action.choice]} on ${proposalTag(action.proposal)}`;
     case "closeVote":
-      return "Close the vote";
+      return `Close the vote on ${proposalTag(action.proposal)}`;
     case "decide":
-      return action.decision === "adopted" ? "Adopt the proposal" : "Veto the proposal";
+      return `${action.decision === "adopted" ? "Adopt" : "Veto"} ${proposalTag(action.proposal)}`;
     case "reopenVote":
-      return "Reopen the vote";
+      return `Reopen the vote on ${proposalTag(action.proposal)}`;
     case "reset":
       return "Reset the demo";
   }
@@ -472,33 +446,40 @@ function apply(state: State, action: Action): [State, string] {
         `Deposited ${formatAmount(DEPOSIT_AMOUNT)} USDC as free funds.`,
       ];
     case "castVote": {
+      const vote = state.votes[action.proposal];
+      const { domain } = proposalOf(action.proposal);
+      const c = contributorOf(action.handle);
       const text =
         action.choice === "none"
-          ? "Cleared their vote."
-          : `Voted ${CHOICE_LABEL[action.choice]} with ${formatAmount(pointsOf(action.handle))} Points.`;
-      return [{ ...state, vote: { ...state.vote, choices: { ...state.vote.choices, [action.handle]: action.choice } } }, text];
+          ? `Cleared their vote on ${proposalTag(action.proposal)}.`
+          : `Voted ${CHOICE_LABEL[action.choice]} on ${proposalTag(action.proposal)} with power ${formatPower(votingPower(c, domain))} (√${formatAmount(effectivePoints(c, domain))} effective Points).`;
+      const next: Vote = { ...vote, choices: { ...vote.choices, [action.handle]: action.choice } };
+      return [{ ...state, votes: { ...state.votes, [action.proposal]: next } }, text];
     }
     case "closeVote": {
-      const t = tally(state.vote.choices);
-      const outcome = outcomeOf(t);
+      const vote = state.votes[action.proposal];
+      const cmp = compareRules(vote.choices, proposalOf(action.proposal).domain);
+      const t = cmp.love;
       const share = ((t.cast / t.total) * 100).toFixed(1);
-      const quorum = t.quorumMet ? "quorum met" : `quorum of ${formatAmount(t.quorum)} not met`;
+      const quorum = t.quorumMet ? "quorum met" : `quorum of ${formatPower(t.quorum)} not met`;
       return [
-        { ...state, vote: { ...state.vote, closed: true, outcome } },
-        `Closed with ${formatAmount(t.cast)} of ${formatAmount(t.total)} Points cast (${share}%), ${quorum}. For ${formatAmount(t.for)}, against ${formatAmount(t.against)}, abstain ${formatAmount(t.abstain)}. ${OUTCOME_LABEL[outcome]}.`,
+        { ...state, votes: { ...state.votes, [action.proposal]: { ...vote, closed: true, outcome: cmp.loveOutcome } } },
+        `Closed ${proposalTag(action.proposal)} with ${formatPower(t.cast)} of ${formatPower(t.total)} power cast (${share}%), ${quorum}. For ${formatPower(t.for)}, against ${formatPower(t.against)}, abstain ${formatPower(t.abstain)}. ${OUTCOME_LABEL[cmp.loveOutcome]}. The same ballots under 1 Point = 1 vote: ${OUTCOME_LABEL[cmp.pointsOutcome]}.`,
       ];
     }
-    case "decide":
+    case "decide": {
+      const vote = state.votes[action.proposal];
       return [
-        { ...state, vote: { ...state.vote, decision: action.decision } },
+        { ...state, votes: { ...state.votes, [action.proposal]: { ...vote, decision: action.decision } } },
         action.decision === "adopted"
-          ? "Adopted the passed proposal."
-          : "Vetoed the passed proposal. The advisory result stays on record.",
+          ? `Adopted passed ${proposalTag(action.proposal)}.`
+          : `Vetoed passed ${proposalTag(action.proposal)}. The advisory result stays on record.`,
       ];
+    }
     case "reopenVote":
       return [
-        { ...state, vote: { ...initialState.vote } },
-        "Reopened the vote. All votes cleared.",
+        { ...state, votes: { ...state.votes, [action.proposal]: emptyVote } },
+        `Reopened the vote on ${proposalTag(action.proposal)}. Its votes are cleared; the other proposals keep theirs.`,
       ];
     case "reset":
       return [{ ...initialState }, "Reset to the sample data."];

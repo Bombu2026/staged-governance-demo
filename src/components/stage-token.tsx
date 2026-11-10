@@ -10,7 +10,7 @@ const QUESTIONS = [
     detail: "A token can be bought on the day of a vote. Snapshots, lockups or time-weighting each trade openness for resistance.",
   },
   {
-    q: "How does it coexist with Points-weighted votes?",
+    q: "How does it coexist with Proof of Love power?",
     detail: "Points measure accepted work and tokens measure holdings. Both could be required, one could advise the other, or each could own a separate domain.",
   },
   {
