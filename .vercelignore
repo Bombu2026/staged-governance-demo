@@ -1,0 +1,4 @@
+public/vault
+.vault-cache
+node_modules
+.next
