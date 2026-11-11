@@ -291,6 +291,13 @@ export function useLive() {
     return () => clearInterval(timer);
   }, [refresh, visitor]);
 
+  // An action that started before the sandbox existed must still re-read the chain for the sandbox it
+  // created, so the re-read after an action always goes through the latest reader.
+  const latestRefresh = useRef(refresh);
+  useEffect(() => {
+    latestRefresh.current = refresh;
+  }, [refresh]);
+
   useEffect(() => {
     if (!visitor) return;
     const timer = setInterval(() => setNow(Date.now()), 1_000);
@@ -362,7 +369,7 @@ export function useLive() {
       setToast(toastFor(error, seq.current));
     } finally {
       // Re-read the chain before the next action is possible, so it never starts from stale numbers.
-      await refresh();
+      await latestRefresh.current();
       setBusy(null);
     }
   }

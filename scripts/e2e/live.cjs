@@ -140,6 +140,7 @@ async function standInWallet() {
     await main.getByRole("heading", { name: "Pools" }).waitFor({ timeout: WAIT * 6 });
     await idle();
     await page.getByRole("button", { name: new RegExp(`Wallet ${wallet.address.slice(0, 6)}`, "i") }).waitFor({ timeout: WAIT });
+    // The board must show the two sample pools as soon as the setup is over, without waiting for a refresh.
     assert.equal(await main.locator('a[href^="#/pool/"]').count(), 2);
     await collect();
     await shot("2-board");

@@ -2,9 +2,10 @@
 
 > Independent concept demos. The simulations run in your browser. The optional live modes use test networks only (Base Sepolia and Solana devnet), where nothing has value. Not affiliated with or endorsed by slop.cash. The contracts are not audited.
 
-Two interactive pages that accompany a proposal to the Slop team:
+Three pages that accompany a proposal to the Slop team:
 
-- **`/` Pooled funding.** Several funders fill one pool for an open-source build, all or nothing. Contributors list the pool with a Proof of Love vote. A full pool is paid to contributors by Points; any other pool is refunded in full.
+- **`/` Pools.** Several funders fill one pool for an open-source build, all or nothing. Contributors list the pool with a Proof of Love vote. A full pool is paid to contributors by Points; any other pool is refunded in full. The page works on sample data, or on Base Sepolia once a wallet is connected, top right.
+- **`/how-it-works`.** The two ways in, the rules, where the idea meets Slop today and what it leaves open.
 - **`/governance` Staged governance.** Who can change the code and rules around funders' money: a multisig and a timelock on upgrades, an advisory Proof of Love vote, token governance later.
 
 ## Pooled funding
@@ -13,12 +14,12 @@ Two interactive pages that accompany a proposal to the Slop team:
 
 Today one project owner funds a project's monthly pool on Slop. Pooled funding lets several parties fund one build together, from either side:
 
-- **Request.** A company needs something built. It posts the need and a budget and puts in the first pledge. Other companies with the same need add theirs.
-- **Community proposal.** A contributor with Points proposes a build and a budget, with no money down. Funders who want it fill the pool.
+- **Company request.** A company needs something built. It posts the need and a budget and puts in the first pledge. Other companies with the same need add theirs.
+- **Contributor proposal.** A contributor with Points offers to build something and names the budget, with no money down. Funders who want it fill the pool.
 
 Both follow the same path:
 
-1. **Propose.** A request with a first pledge, or a community proposal with none.
+1. **Propose.** A request with a first pledge, or a contributor proposal with none.
 2. **Contributors vote.** A Proof of Love vote lists the pool or not. Power comes from Points earned through accepted work, never from money.
 3. **The pool fills, or not.** Funders pledge until the deadline. Pledges are locked meanwhile, so the total everyone sees is real.
 4. **Paid by Points, or refunded.** Full by the deadline: the build launches and the pool is paid to contributors by share of project Points, less the 2% fee Slop publishes for payouts. Not full: every pledge goes back, with no fee.
@@ -37,11 +38,20 @@ Both follow the same path:
 
 The weights, the square root, the 40% quorum, the voting and funding periods and the 2% fee are sample parameters of this demo.
 
-### The simulation
+### The pools page
 
-The page starts with two sample pools, one per direction: a listed request of 50,000 USDC opened by `company-a` with 10,000, and a community proposal of 30,000 USDC whose listing vote is open. You pledge as any of four sample companies, vote as any of seven sample contributors, move a simulated clock, accept sample work, pay out, ask for a closure vote, or open your own pool from a form. Every action lands in an event log, refused ones included with the reason.
+The page is laid out like slop.cash: a header with the wallet on the right, a board of pool cards under a "Pools" heading with an "Open a pool" button, and one page per pool with its vault bar, figures, funders, vote and payout.
 
-State lives in React memory and is gone on reload. Companies, contributors, wallets and Points are sample data.
+- **The board** filters company requests and contributor proposals. Each card shows the target, what the pool holds, its status and its clock.
+- **A pool page** has one action card for what you can do now (vote, pledge, launch, refund, pay, ask for a closure vote) and a card marked "Demo" for the rest of the cast: the other contributors, the other companies, the maintainers. Other people would act on their own; here you play them with one click.
+- **Open a pool** offers both directions side by side: "Request a build" for a company, with a first pledge, or "Propose a build" for a contributor, with no money down.
+- **Activity** lists every action, refused ones included with the reason. A blocked button still takes the click, so you can read why the rules refuse.
+
+Two engines feed the same interface (`src/components/pools/app/`):
+
+**Sample data** (no wallet). Five sample pools, one at each stage: a company request open for pledges, a contributor proposal in its listing vote, a build ready to be paid, a pool already paid by Points, and a proposal that missed its target and was refunded. They are built by replaying real actions, and a test checks the rules refuse none of them. You act as one sample person at a time, chosen top right: four companies and seven contributors. A company can request and pledge, a contributor can propose and vote. A simulated clock moves the deadlines. State lives in React memory and is gone on reload.
+
+**Base Sepolia** (wallet connected). Described under "Live mode" below.
 
 ### The contracts
 
@@ -69,21 +79,20 @@ Whoever sends the deployment, a contract found at one of these addresses can onl
 | Demo USDC | [transaction](https://sepolia.basescan.org/tx/0x75c118ed90298b59be299b9abad0366644c52c891788b6864dc300da45269018) | [Blockscout](https://base-sepolia.blockscout.com/address/0x92CC1185715c0BF1d6248440014B0E674fdD4301?tab=contract), [Sourcify](https://repo.sourcify.dev/84532/0x92CC1185715c0BF1d6248440014B0E674fdD4301) |
 | PooledFunding | [transaction](https://sepolia.basescan.org/tx/0x45ec40be0a08cb085e35c6238e834d3c80b0f72f77a3f9e49b6663b282ec2f59) | [Blockscout](https://base-sepolia.blockscout.com/address/0xf7421ED306bdF20D97918982577b820c1c2e4F71?tab=contract), [Sourcify](https://repo.sourcify.dev/84532/0xf7421ED306bdF20D97918982577b820c1c2e4F71) |
 
-They were deployed with `DEPLOYER_PRIVATE_KEY=0x... bun run contracts:deploy` and verified with `bun run contracts:verify`. On a chain where the addresses are still empty, the deployment is two transactions that anyone can send once, for everyone: from a terminal with that command and a throwaway key, or from the page with "Deploy the contracts" in the live panel.
+They were deployed with `DEPLOYER_PRIVATE_KEY=0x... bun run contracts:deploy` and verified with `bun run contracts:verify`. On a chain where the addresses are still empty, the deployment is two transactions that anyone can send once, for everyone: from a terminal with that command and a throwaway key, or from the page, which offers "Deploy the contracts" when a connected wallet finds them missing.
 
 ### Live mode on Base Sepolia
 
-Below the simulation, a panel runs the same story with real transactions on Base Sepolia. You connect a browser wallet such as Phantom (testnet mode on) and play one funder, "Company A". Throwaway keys generated in the tab play the steward, three contributors and two other companies; they are kept in `sessionStorage` so a reload can resume the sandbox.
+Connect a browser wallet such as Phantom with the button top right, and the same page runs on the contract. Your wallet is both a company and a contributor: it holds demo USDC and Points, so it can request a build, propose a build, pledge and vote itself. Throwaway keys generated in the tab play the steward, three sample contributors and two other companies; they are kept in `sessionStorage` so a reload can resume the sandbox.
 
-1. **Connect.** The page lists the wallets it finds (EIP-6963, then `window.phantom.ethereum` and `window.ethereum`), asks for the account and asks the wallet to switch to Base Sepolia.
-2. **Contracts.** The page reads the two addresses and shows them as deployed. If it found them empty, two prompts would deploy them (see above).
-3. **Sandbox.** One prompt sends a little testnet ETH to the steward key for gas. With no further prompt, that key forwards gas to the other keys, creates a space with 60 s votes, records sample Points for three contributors and mints 100,000 demo USDC to you and to companies B and C.
-4. **Open a pool**, from either side: a request from your wallet with a first pledge of 10,000 (two prompts: an approval for exactly that amount, then `propose`), or a community proposal signed in the page by contributor A. The target is 50,000 demo USDC, and you choose the funding window: 5 minutes to fill the pool at ease, or 1 minute to watch it miss its target and refund.
-5. **Vote.** The three contributors vote from the page. The contract computes each power from the Points it stores. Closing the vote too early is refused with `VoteStillOpen`.
-6. **Fill the pool, or let it miss.** You pledge from your wallet (approval, then `pledge`), companies B and C from the page. Launching a partial pool is refused with `TargetNotReached`, refunding an open pool with `RefundNotAvailable`. If the deadline passes below the target, one button refunds everyone.
-7. **Build, then pay by Points.** The steward posts a sample record of accepted work and the contract pays the three contributors and the fee wallet. Or company B asks for a closure vote, and if it passes everyone is refunded.
+1. **Connect.** The page finds wallets through EIP-6963, then `window.phantom.ethereum` and `window.ethereum`, asks for the account and asks the wallet to be on Base Sepolia.
+2. **Set up your sandbox.** One prompt sends a little testnet ETH to the steward key for gas. With no further prompt, the demo keys create your own space on the contract, record sample Points for you and three contributors, mint 100,000 demo USDC to you and to companies B and C, and open two sample pools: a company request of 50,000 with a first pledge of 10,000, already listed, and a contributor proposal of 30,000 whose listing vote is open.
+3. **Use the page.** Vote with your Points (one prompt), pledge (two prompts: an approval for exactly that amount, then `pledge`), open a request (approval, then `propose`) or propose a build (one prompt, no money). Steps anyone may take, such as closing a vote, launching a full pool or refunding, are sent by a demo key with no prompt. The steward key posts the sample record of accepted work at payout; your wallet is one of the payees.
+4. **Play the rest of the cast** from the "Demo" card: the sample contributors vote, companies B and C pledge, company B asks for a closure vote.
 
-The refusals the panel invites you to try (closing a vote early, launching a partial pool, refunding an open pool) are also sent on-chain with a fixed gas limit, so each one is recorded as a reverted transaction with a BaseScan link in the event log.
+Votes stay open for an hour, so nothing expires while you look around; a vote still closes as soon as one side holds a majority of all power. When you open a pool you choose its funding window: 1 minute to watch it miss its target and refund, 10 minutes, or 7 days.
+
+A blocked step that a demo key would send (closing a vote early, launching a partial pool, refunding an open pool, paying during a closure vote) is still sent on-chain with a fixed gas limit, so the refusal is recorded as a reverted transaction with a BaseScan link in the activity list. A blocked step your wallet would sign is not sent: the page says why and asks for nothing.
 
 Safety rules in the code (`src/lib/pools/chain/`):
 
@@ -91,7 +100,7 @@ Safety rules in the code (`src/lib/pools/chain/`):
 - The wallet is used for `eth_requestAccounts`, `eth_chainId`, the network switch and `eth_sendTransaction` only. The page never asks for a message or typed-data signature.
 - Before every wallet request the page checks that the wallet is on Base Sepolia and that the transaction goes to one of the two demo contracts or the deployment proxy with no ETH attached. Plain ETH can only go to the steward demo key.
 - Approvals are for the exact amount about to be pledged, never unlimited.
-- Before each prompt the panel lists what the transaction does. Nothing about your wallet is stored beyond its address in memory.
+- Next to each button the page says how many prompts it takes and who signs. Nothing about your wallet is stored beyond its address in memory.
 
 You need a little Base Sepolia ETH for gas; the page links to the [list of faucets](https://docs.base.org/get-started/get-funds#testnet-base-sepolia). In Phantom, open Settings → Developer Settings, turn on Testnet Mode and choose Base Sepolia as the test network: Phantom shows and uses only the test network chosen there, and does not follow a page that asks it to switch.
 
@@ -167,16 +176,19 @@ Without `bun run vault`, both pages still work and the vault window explains tha
 - `src/lib/pools/contract.test.ts` starts a local chain (anvil, a dev dependency, answering with the Base Sepolia chain id) and drives the real contracts with the same client code the page uses: deployment at the derived addresses, every refusal by name, exact payouts and refunds, and the wallet guard.
 - The last test of that file replays one story, action by action, in the simulation and on the contract, and compares every tally, status, balance, payout and refund. The simulation and the contract are two implementations of one set of rules, and this test keeps them equal.
 - `src/lib/pools/chain/chain.test.ts` covers address derivation, error decoding, wallet discovery, the network switch and the session format.
+- `src/lib/pools/demo-seed.test.ts` checks that the five sample pools are built by actions the rules accept, and that they show one pool at each stage.
 - The remaining test files cover the governance state machine, the Proof of Love comparison, the vault index and Markdown safety, and the Solana devnet helpers.
 
 Two browser tests click through the pages. They need Playwright with a Chromium build (`bun add -d playwright && bunx playwright install chromium`) and a running `bun run dev`:
 
 ```sh
-bun run e2e:sim    # the whole simulation
-bun run e2e:live   # the live panel, end to end
+bun run e2e:sim    # the pools page on its sample data
+bun run e2e:live   # the pools page with a connected wallet, end to end
 ```
 
-By default `e2e:live` uses no testnet: it routes the page's requests for the Base Sepolia RPC to a local anvil chain and injects a stand-in wallet announced as "Phantom". It deploys both contracts from the page, then plays three pools: paid out, refunded after a missed target, and closed by vote. It also checks that the wallet was only ever asked for accounts, the chain id and transactions.
+`e2e:sim` plays both directions as sample people: a company request refused while partial, filled, launched and paid by Points; a contributor proposal that a company cannot vote on, listed by contributors, then missing its target and refunded; one new pool from each side; and a build closed by vote.
+
+By default `e2e:live` uses no testnet: it routes the page's requests for the Base Sepolia RPC to a local anvil chain and injects a stand-in wallet announced as "Phantom". It deploys both contracts from the page, sets up the sandbox, plays the two sample pools (the request paid by Points with the wallet among the payees, the proposal listed after the wallet's vote), then opens one pool from each side with the wallet: a proposal that misses its one-minute window and refunds, and a request closed by vote. It also checks that the wallet was only ever asked for accounts, the chain id and transactions, and that a reload resumes the sandbox.
 
 Two checks run on the real network, with a key that holds about 0.001 Base Sepolia ETH (a key for testnet ETH only):
 
@@ -198,14 +210,15 @@ What has not been run to the end: the live panel with a real Phantom wallet. A f
 - `contracts/` holds the two Solidity sources; `scripts/compile-contracts.mjs` compiles them with the pinned solc-js, `scripts/deploy-contracts.ts` deploys them and `scripts/verify-contracts.ts` publishes their source to explorers with the same compiler input.
 - `src/lib/pools/math.ts` holds the integer rules shared by the simulation, the live mode and the tests. `src/lib/pools/sim.ts` is the simulation's pure state machine (`initialState`, `reduce`, `refusal`), with refusals named like the contract's errors.
 - `src/lib/pools/chain/` holds the live mode: constants, address derivation, the RPC and wallet guards (`core.ts`), transaction builders and readers (`actions.ts`), error decoding, wallet discovery and the session format. Functions take a client and a sender, so the tests and the deploy script drive them without a browser.
-- `src/components/pools/` holds the page: `pools-demo.tsx`, the pool detail, the new-pool form and, under `live/`, the testnet panel, which loads viem only when opened.
+- `src/lib/pools/demo-seed.ts` replays the actions that build the five sample pools.
+- `src/components/pools/app/` holds the pools page. `engine.ts` is the view model; `use-demo-engine.ts` feeds it from the simulation and `use-live.ts` from the contract. The screens (`home-view.tsx`, `pool-view.tsx`, `open-pool.tsx`, `setup-view.tsx`) and the header's `wallet-menu.tsx` only know the view model. `src/components/pools/how-it-works.tsx` is the explanation page.
 - `src/lib/governance.ts` and `src/lib/vote.ts` hold the staged-governance state machine and the Proof of Love comparison; `src/lib/devnet/` holds the Solana live mode; `src/components/demo.tsx` and its stage components render that page.
 - `src/lib/vault-index.ts` and `src/lib/vault-markdown.ts` serve the vault window under `src/components/vault/`.
 - `next.config.ts` sends a Content-Security-Policy header. It has no `script-src` directive, because the statically generated pages rely on inline bootstrap scripts from Next.js, and no `connect-src`, so the live modes can reach their RPC endpoints.
 
 ## Next steps
 
-- Run the live panel once on the real network with Phantom.
+- Play the pools page to the end on the real network with a real Phantom wallet.
 - An open-source governance agent that answers questions grounded in the vault is planned. It is not built yet.
 
 ## Licence
