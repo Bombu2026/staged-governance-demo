@@ -62,17 +62,21 @@ Both contracts are deployed through the [deterministic deployment proxy](https:/
 
 Whoever sends the deployment, a contract found at one of these addresses can only be this code. Changing one byte of a contract moves both addresses; a test pins them.
 
-**Deployment status.** On 11 November 2026 nothing is deployed at these addresses yet: no testnet ETH was available when this was built. The deployment is two transactions that anyone can send once, for everyone:
+**Deployment status.** Both contracts are deployed on Base Sepolia since 11 November 2026, and their source is verified on Sourcify and Blockscout:
 
-- from the page: connect a wallet in the live panel and press "Deploy the contracts", or
-- from a terminal: `DEPLOYER_PRIVATE_KEY=0x... bun run contracts:deploy`, with a throwaway key that only holds Base Sepolia ETH.
+| Contract | Deployment | Verified source |
+| --- | --- | --- |
+| Demo USDC | [transaction](https://sepolia.basescan.org/tx/0x75c118ed90298b59be299b9abad0366644c52c891788b6864dc300da45269018) | [Blockscout](https://base-sepolia.blockscout.com/address/0x92CC1185715c0BF1d6248440014B0E674fdD4301?tab=contract), [Sourcify](https://repo.sourcify.dev/84532/0x92CC1185715c0BF1d6248440014B0E674fdD4301) |
+| PooledFunding | [transaction](https://sepolia.basescan.org/tx/0x45ec40be0a08cb085e35c6238e834d3c80b0f72f77a3f9e49b6663b282ec2f59) | [Blockscout](https://base-sepolia.blockscout.com/address/0xf7421ED306bdF20D97918982577b820c1c2e4F71?tab=contract), [Sourcify](https://repo.sourcify.dev/84532/0xf7421ED306bdF20D97918982577b820c1c2e4F71) |
+
+They were deployed with `DEPLOYER_PRIVATE_KEY=0x... bun run contracts:deploy` and verified with `bun run contracts:verify`. On a chain where the addresses are still empty, the deployment is two transactions that anyone can send once, for everyone: from a terminal with that command and a throwaway key, or from the page with "Deploy the contracts" in the live panel.
 
 ### Live mode on Base Sepolia
 
 Below the simulation, a panel runs the same story with real transactions on Base Sepolia. You connect a browser wallet such as Phantom (testnet mode on) and play one funder, "Company A". Throwaway keys generated in the tab play the steward, three contributors and two other companies; they are kept in `sessionStorage` so a reload can resume the sandbox.
 
 1. **Connect.** The page lists the wallets it finds (EIP-6963, then `window.phantom.ethereum` and `window.ethereum`), asks for the account and asks the wallet to switch to Base Sepolia.
-2. **Contracts.** If they are not deployed yet, two prompts deploy them (see above).
+2. **Contracts.** The page reads the two addresses and shows them as deployed. If it found them empty, two prompts would deploy them (see above).
 3. **Sandbox.** One prompt sends a little testnet ETH to the steward key for gas. With no further prompt, that key forwards gas to the other keys, creates a space with 60 s votes, records sample Points for three contributors and mints 100,000 demo USDC to you and to companies B and C.
 4. **Open a pool**, from either side: a request from your wallet with a first pledge of 10,000 (two prompts: an approval for exactly that amount, then `propose`), or a community proposal signed in the page by contributor A. The target is 50,000 demo USDC, and you choose the funding window: 5 minutes to fill the pool at ease, or 1 minute to watch it miss its target and refund.
 5. **Vote.** The three contributors vote from the page. The contract computes each power from the Points it stores. Closing the vote too early is refused with `VoteStillOpen`.
@@ -183,7 +187,9 @@ E2E_NETWORK=base-sepolia E2E_PRIVATE_KEY=0x... bun run e2e:live
 
 `sepolia:check` needs no browser. It deploys the contracts if they are missing, creates throwaway keys and plays the same three pools with the page's client code, printing every transaction as a BaseScan link, refusals included as reverted transactions, and sends the unspent gas back at the end. The second command runs the browser test against the real network with nothing intercepted; the stand-in wallet signs with the given key.
 
-What has not been run: the live panel against the real Base Sepolia network with a real Phantom wallet. That needs testnet ETH.
+On 11 November 2026 `sepolia:check` passed on Base Sepolia with 60 transactions. Three of them: the [payout by Points](https://sepolia.basescan.org/tx/0x7f21bcc8e12d009f2e1e00b64d0cdf8454fec7235154bce626312c47c5021ab8) of the first pool (23,058.823529, 8,647.058823 and 17,294.117648 demo USDC, plus the 1,000 fee), the [refund](https://sepolia.basescan.org/tx/0x0759a64bf1913ad4200468a78e389b0466e948ad2ddcf626b912ca6dd1ae6767) after the second pool missed its target, and the refused [second refund](https://sepolia.basescan.org/tx/0x355989aba13aae39bdf5acaca6c5b52d83ef938dece8e2c8187edaefcfdee249) of the same pledge (`NothingToRefund`).
+
+What has not been run to the end: the live panel with a real Phantom wallet. A first real connection showed that Phantom must have Base Sepolia chosen as its test network; the page and this README now say so.
 
 ## Layout
 
@@ -197,7 +203,6 @@ What has not been run: the live panel against the real Base Sepolia network with
 
 ## Next steps
 
-- Deploy the two contracts on Base Sepolia and verify their source on BaseScan.
 - Run the live panel once on the real network with Phantom.
 - An open-source governance agent that answers questions grounded in the vault is planned. It is not built yet.
 
