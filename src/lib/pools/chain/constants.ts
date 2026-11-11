@@ -20,7 +20,10 @@ export const PHANTOM_URL = "https://phantom.app";
 
 // The sandbox a visitor runs: short periods so the whole story fits in a few minutes.
 export const VOTING_SECONDS = 60;
-export const FUNDING_SECONDS = 120;
+// Two funding windows to choose from when a pool is opened: long enough to fill it at ease, or short
+// enough to watch it miss its target and refund without waiting.
+export const FUNDING_SECONDS_LONG = 300;
+export const FUNDING_SECONDS_SHORT = 60;
 export const DEMO_TARGET_USDC = 50_000;
 export const DEMO_PLEDGE_USDC = 20_000;
 export const DEMO_OPENING_USDC = 10_000;

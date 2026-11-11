@@ -10,6 +10,7 @@
     "contracts": "node scripts/compile-contracts.mjs",
     "contracts:check": "node scripts/compile-contracts.mjs --check",
     "contracts:deploy": "bun scripts/deploy-contracts.ts",
+    "sepolia:check": "bun scripts/base-sepolia-check.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "e2e:sim": "node scripts/e2e/sim.cjs",

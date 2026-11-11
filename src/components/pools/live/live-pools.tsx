@@ -39,7 +39,8 @@ import {
   DEMO_PLEDGE_USDC,
   DEMO_TARGET_USDC,
   FAUCET_URL,
-  FUNDING_SECONDS,
+  FUNDING_SECONDS_LONG,
+  FUNDING_SECONDS_SHORT,
   PHANTOM_URL,
   SESSION_STORAGE_KEY,
   VOTING_SECONDS,
@@ -170,6 +171,7 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [payout, setPayout] = useState<{ poolId: bigint; lines: PayoutLine[]; net: bigint; fee: bigint } | null>(null);
   const [another, setAnother] = useState(false);
+  const [fundingSeconds, setFundingSeconds] = useState(FUNDING_SECONDS_LONG);
   const [rpcIssue, setRpcIssue] = useState<DecodedError | null>(null);
   const [busy, setBusy] = useState<{ label: string; stage: "wallet" | "network" } | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -418,7 +420,7 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
     perform("Open a request", YOU, async () => {
       if (spaceId === null) return;
       if (!record(await send(me(), approveTx(OPENING)), YOU, `Approved the pool contract to take ${formatUsdc(OPENING)} demo USDC, the exact first pledge.`, "Approve the first pledge")) return;
-      const tx = proposeTx({ spaceId, kind: "request", domain: 0, target: TARGET, fundingSeconds: FUNDING_SECONDS, title: "Open-source e-invoicing engine", openingPledge: OPENING });
+      const tx = proposeTx({ spaceId, kind: "request", domain: 0, target: TARGET, fundingSeconds, title: "Open-source e-invoicing engine", openingPledge: OPENING });
       const made = await send(me(), tx);
       if (record(made, YOU, `Opened a request for ${formatUsdc(TARGET)} demo USDC with a first pledge of ${formatUsdc(OPENING)}. Contributors vote on listing it.`, "Open a request")) {
         setAnother(false);
@@ -429,7 +431,7 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
   const proposeBuild = () =>
     perform("Propose a build", ROLE_LABEL.contributorA, async () => {
       if (spaceId === null || !keys) return;
-      const tx = proposeTx({ spaceId, kind: "proposal", domain: 0, target: TARGET, fundingSeconds: FUNDING_SECONDS, title: "Open-source feature-flag service", openingPledge: 0n });
+      const tx = proposeTx({ spaceId, kind: "proposal", domain: 0, target: TARGET, fundingSeconds, title: "Open-source feature-flag service", openingPledge: 0n });
       const made = await send(keys.contributorA, tx);
       if (record(made, ROLE_LABEL.contributorA, `Proposed a build for ${formatUsdc(TARGET)} demo USDC, with no money down. Contributors vote on listing it.`, "Propose a build")) {
         setAnother(false);
@@ -717,6 +719,29 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
           <Step n={4} title="Open a pool, from either side" state={proposing ? "active" : "done"}>
             {proposing ? (
               <>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span className={LABEL}>Funding window</span>
+                  <div className="flex gap-1.5" role="group" aria-label="Funding window">
+                    {[FUNDING_SECONDS_LONG, FUNDING_SECONDS_SHORT].map((seconds) => (
+                      <button
+                        key={seconds}
+                        type="button"
+                        aria-pressed={fundingSeconds === seconds}
+                        onClick={() => setFundingSeconds(seconds)}
+                        className={`min-h-11 rounded-md border px-3 text-sm font-bold transition-colors motion-reduce:transition-none ${
+                          fundingSeconds === seconds ? "border-transparent bg-ink text-canvas" : "border-line-strong text-ink hover:bg-raised"
+                        }`}
+                      >
+                        {seconds / 60} min
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted">
+                    {fundingSeconds === FUNDING_SECONDS_LONG
+                      ? "Time to fill the pool at ease. It counts from the moment the pool is listed."
+                      : "Short on purpose: pledge once, then watch the pool miss its target and refund."}
+                  </p>
+                </div>
                 <div className="grid gap-4 @3xl:grid-cols-2">
                   <div className="space-y-3">
                     <p className="font-bold">As a company with a need</p>
@@ -725,7 +750,7 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
                       signer={`${YOU}, two prompts`}
                       lines={[
                         { program: USDC, action: "approve", detail: <>lets the pool contract take exactly {formatUsdc(OPENING)} demo USDC</> },
-                        { program: POOLS, action: "propose", detail: <>a request for {formatUsdc(TARGET)} with a first pledge of {formatUsdc(OPENING)}, open {FUNDING_SECONDS} s once listed</> },
+                        { program: POOLS, action: "propose", detail: <>a request for {formatUsdc(TARGET)} with a first pledge of {formatUsdc(OPENING)}, open {fundingSeconds / 60} min once listed</> },
                       ]}
                     />
                     <ActionButton
@@ -741,7 +766,7 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
                     <TxPreview
                       heading="What contributor A will sign, in the page"
                       signer="Contributor A (no wallet prompt)"
-                      lines={[{ program: POOLS, action: "propose", detail: <>a community proposal for {formatUsdc(TARGET)} demo USDC, with no money down</> }]}
+                      lines={[{ program: POOLS, action: "propose", detail: <>a community proposal for {formatUsdc(TARGET)} demo USDC, with no money down, open {fundingSeconds / 60} min once listed</> }]}
                     />
                     <ActionButton why={blocked} onClick={guard(() => void proposeBuild())}>
                       Propose a build as contributor A

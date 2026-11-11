@@ -74,7 +74,7 @@ Below the simulation, a panel runs the same story with real transactions on Base
 1. **Connect.** The page lists the wallets it finds (EIP-6963, then `window.phantom.ethereum` and `window.ethereum`), asks for the account and asks the wallet to switch to Base Sepolia.
 2. **Contracts.** If they are not deployed yet, two prompts deploy them (see above).
 3. **Sandbox.** One prompt sends a little testnet ETH to the steward key for gas. With no further prompt, that key forwards gas to the other keys, creates a space with 60 s votes, records sample Points for three contributors and mints 100,000 demo USDC to you and to companies B and C.
-4. **Open a pool**, from either side: a request from your wallet with a first pledge of 10,000 (two prompts: an approval for exactly that amount, then `propose`), or a community proposal signed in the page by contributor A. The target is 50,000 demo USDC and the funding window is 120 s.
+4. **Open a pool**, from either side: a request from your wallet with a first pledge of 10,000 (two prompts: an approval for exactly that amount, then `propose`), or a community proposal signed in the page by contributor A. The target is 50,000 demo USDC, and you choose the funding window: 5 minutes to fill the pool at ease, or 1 minute to watch it miss its target and refund.
 5. **Vote.** The three contributors vote from the page. The contract computes each power from the Points it stores. Closing the vote too early is refused with `VoteStillOpen`.
 6. **Fill the pool, or let it miss.** You pledge from your wallet (approval, then `pledge`), companies B and C from the page. Launching a partial pool is refused with `TargetNotReached`, refunding an open pool with `RefundNotAvailable`. If the deadline passes below the target, one button refunds everyone.
 7. **Build, then pay by Points.** The steward posts a sample record of accepted work and the contract pays the three contributors and the fee wallet. Or company B asks for a closure vote, and if it passes everyone is refunded.
@@ -148,6 +148,7 @@ bun run build            # runs the vault generator, then next build
 bun run contracts        # recompile contracts/ into src/lib/pools/generated/contracts.ts
 bun run contracts:check  # fail if the committed bytecode differs from a fresh compile
 bun run contracts:deploy # deploy both contracts to Base Sepolia (needs DEPLOYER_PRIVATE_KEY)
+bun run sepolia:check    # play three pools on the real Base Sepolia, no browser (needs CHECK_PRIVATE_KEY)
 bun run devnet:check     # headless Squads v4 check on Solana devnet (needs devnet SOL)
 ```
 
@@ -170,7 +171,16 @@ bun run e2e:sim    # the whole simulation
 bun run e2e:live   # the live panel, end to end
 ```
 
-`e2e:live` uses no testnet: it routes the page's requests for the Base Sepolia RPC to a local anvil chain and injects a stand-in wallet announced as "Phantom". It deploys both contracts from the page, then plays three pools: paid out, refunded after a missed target, and closed by vote. It also checks that the wallet was only ever asked for accounts, the chain id and transactions.
+By default `e2e:live` uses no testnet: it routes the page's requests for the Base Sepolia RPC to a local anvil chain and injects a stand-in wallet announced as "Phantom". It deploys both contracts from the page, then plays three pools: paid out, refunded after a missed target, and closed by vote. It also checks that the wallet was only ever asked for accounts, the chain id and transactions.
+
+Two checks run on the real network, with a key that holds about 0.001 Base Sepolia ETH (a key for testnet ETH only):
+
+```sh
+CHECK_PRIVATE_KEY=0x... bun run sepolia:check
+E2E_NETWORK=base-sepolia E2E_PRIVATE_KEY=0x... bun run e2e:live
+```
+
+`sepolia:check` needs no browser. It deploys the contracts if they are missing, creates throwaway keys and plays the same three pools with the page's client code, printing every transaction as a BaseScan link, refusals included as reverted transactions, and sends the unspent gas back at the end. The second command runs the browser test against the real network with nothing intercepted; the stand-in wallet signs with the given key.
 
 What has not been run: the live panel against the real Base Sepolia network with a real Phantom wallet. That needs testnet ETH.
 
