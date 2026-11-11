@@ -9,12 +9,14 @@ export type DemoRole = (typeof DEMO_ROLES)[number];
 export interface StoredDemo {
   keys: Record<DemoRole, Hex>;
   spaceId: bigint | null;
+  // True once the sandbox is fully set up: Points recorded, demo USDC minted, sample pools opened.
+  ready: boolean;
 }
 
 const PRIVATE_KEY = /^0x[0-9a-f]{64}$/;
 
 export function serializeDemo(demo: StoredDemo): string {
-  return JSON.stringify({ v: 1, keys: demo.keys, spaceId: demo.spaceId === null ? null : demo.spaceId.toString() });
+  return JSON.stringify({ v: 2, keys: demo.keys, spaceId: demo.spaceId === null ? null : demo.spaceId.toString(), ready: demo.ready });
 }
 
 export function parseDemo(raw: string | null): StoredDemo | null {
@@ -26,8 +28,8 @@ export function parseDemo(raw: string | null): StoredDemo | null {
     return null;
   }
   if (typeof data !== "object" || data === null) return null;
-  const { v, keys, spaceId } = data as Record<string, unknown>;
-  if (v !== 1 || typeof keys !== "object" || keys === null) return null;
+  const { v, keys, spaceId, ready } = data as Record<string, unknown>;
+  if (v !== 2 || typeof keys !== "object" || keys === null || typeof ready !== "boolean") return null;
   const parsed = {} as Record<DemoRole, Hex>;
   for (const role of DEMO_ROLES) {
     const key = (keys as Record<string, unknown>)[role];
@@ -36,5 +38,6 @@ export function parseDemo(raw: string | null): StoredDemo | null {
   }
   if (new Set(Object.values(parsed)).size !== DEMO_ROLES.length) return null;
   if (spaceId !== null && (typeof spaceId !== "string" || !/^[1-9][0-9]{0,30}$/.test(spaceId))) return null;
-  return { keys: parsed, spaceId: spaceId === null ? null : BigInt(spaceId) };
+  if (ready && spaceId === null) return null;
+  return { keys: parsed, spaceId: spaceId === null ? null : BigInt(spaceId), ready };
 }

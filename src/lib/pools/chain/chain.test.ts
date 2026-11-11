@@ -114,18 +114,20 @@ describe("session storage", () => {
   const keys = Object.fromEntries(DEMO_ROLES.map((role, i) => [role, `0x${(i + 1).toString(16).padStart(64, "0")}`])) as Parameters<typeof serializeDemo>[0]["keys"];
 
   it("round-trips the demo keys and the sandbox id", () => {
-    expect(parseDemo(serializeDemo({ keys, spaceId: null }))).toEqual({ keys, spaceId: null });
-    expect(parseDemo(serializeDemo({ keys, spaceId: 42n }))).toEqual({ keys, spaceId: 42n });
+    expect(parseDemo(serializeDemo({ keys, spaceId: null, ready: false }))).toEqual({ keys, spaceId: null, ready: false });
+    expect(parseDemo(serializeDemo({ keys, spaceId: 42n, ready: true }))).toEqual({ keys, spaceId: 42n, ready: true });
   });
 
   it("rejects anything malformed", () => {
-    const good = JSON.parse(serializeDemo({ keys, spaceId: 7n }));
+    const good = JSON.parse(serializeDemo({ keys, spaceId: 7n, ready: true }));
     const bad = [
       null,
       "",
       "not json",
       "[]",
-      JSON.stringify({ ...good, v: 2 }),
+      JSON.stringify({ ...good, v: 1 }),
+      JSON.stringify({ ...good, ready: "yes" }),
+      JSON.stringify({ ...good, spaceId: null }),
       JSON.stringify({ ...good, keys: { ...good.keys, steward: "0x12" } }),
       JSON.stringify({ ...good, keys: { ...good.keys, steward: good.keys.fees } }),
       JSON.stringify({ ...good, keys: { ...good.keys, fees: undefined } }),

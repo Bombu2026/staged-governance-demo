@@ -61,7 +61,7 @@ export function Demo() {
 
   return (
     <>
-      <SiteHeader current="governance" notice={NOTICE}>
+      <SiteHeader current="governance">
         <VaultHeaderButton vault={vault} />
       </SiteHeader>
 

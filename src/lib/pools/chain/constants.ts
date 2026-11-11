@@ -18,15 +18,19 @@ export const WALLET_HELP_URL = "https://help.phantom.com/hc/en-us/articles/59973
 export const FAUCET_URL = "https://docs.base.org/get-started/get-funds#testnet-base-sepolia";
 export const PHANTOM_URL = "https://phantom.app";
 
-// The sandbox a visitor runs: short periods so the whole story fits in a few minutes.
-export const VOTING_SECONDS = 60;
-// Two funding windows to choose from when a pool is opened: long enough to fill it at ease, or short
-// enough to watch it miss its target and refund without waiting.
-export const FUNDING_SECONDS_LONG = 300;
-export const FUNDING_SECONDS_SHORT = 60;
-export const DEMO_TARGET_USDC = 50_000;
+// The sandbox a visitor runs. Votes stay open for an hour so nothing expires while the visitor looks
+// around; a vote still closes as soon as one side holds a majority of all power.
+export const VOTING_SECONDS = 3_600;
+// Funding windows offered when a pool is opened: short enough to watch a pool miss its target and
+// refund, or long enough to fill it at ease.
+export const FUNDING_WINDOWS = [
+  { id: "1m", seconds: 60, label: "1 minute (watch it miss and refund)" },
+  { id: "10m", seconds: 600, label: "10 minutes" },
+  { id: "7d", seconds: 604_800, label: "7 days" },
+] as const;
+export const DEFAULT_FUNDING_WINDOW = "10m";
+export const SAMPLE_WINDOW_SECONDS = 604_800;
 export const DEMO_PLEDGE_USDC = 20_000;
-export const DEMO_OPENING_USDC = 10_000;
 export const DEMO_MINT_USDC = 100_000;
 
 // Gas the throwaway demo keys need for the whole story, with room for a busy testnet.
@@ -35,4 +39,4 @@ export const STEWARD_GAS_UNITS = 6_000_000n;
 export const MIN_KEY_BUDGET_WEI = 30_000_000_000_000n; // 0.00003 ETH
 export const EVIDENCE_GAS_LIMIT = 300_000n;
 
-export const SESSION_STORAGE_KEY = "pooled-funding-demo:base-sepolia:v1";
+export const SESSION_STORAGE_KEY = "pooled-funding-demo:base-sepolia:v2";

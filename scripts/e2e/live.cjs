@@ -1,6 +1,7 @@
-// Drives the live panel in a real browser, end to end, and plays three pools: paid out by Points,
-// refunded after a missed target, and closed by vote. A stand-in wallet, announced as "Phantom" through
-// EIP-6963, answers the page's wallet requests.
+// Drives the pools page with a connected wallet in a real browser, end to end: the sandbox setup, the
+// two sample pools (a company request paid by Points, a contributor proposal listed by vote), then one
+// pool opened from each side with the wallet (a proposal that misses its target and refunds, a request
+// closed by vote). A stand-in wallet, announced as "Phantom" through EIP-6963, answers the page.
 //
 // Local mode (default) needs no testnet: requests to the Base Sepolia RPC are routed to a local anvil
 // chain with the same chain id, the wallet is one of anvil's unlocked accounts, and the contracts are
@@ -99,153 +100,154 @@ async function standInWallet() {
     });
 
     await page.goto(base + "/", { waitUntil: REAL ? "load" : "networkidle" });
-    // Everything below happens inside the live panel; the simulation above has buttons with the same names.
-    const live = page.locator("section").filter({ has: page.getByRole("heading", { name: "Run it for real on Base Sepolia" }) }).last();
+    const main = page.locator("main");
     const press = async (name, opts = {}) => {
-      const loc = live.getByRole("button", { name, ...opts }).first();
+      const loc = main.getByRole("button", { name, ...opts }).first();
       await loc.waitFor({ timeout: WAIT });
       await loc.evaluate((el) => el.scrollIntoView({ block: "center" }));
-      await loc.click();
+      // Blocked buttons are marked aria-disabled and still take the click, which records the refusal.
+      await loc.click({ force: true });
     };
-    const seen = (text, timeout = WAIT) => live.getByText(text).first().waitFor({ timeout });
-    const idle = () => live.getByRole("status").waitFor({ state: "detached", timeout: WAIT * 2 });
+    const seen = (text, timeout = WAIT) => main.getByText(text).first().waitFor({ timeout });
+    // One action at a time: the page shows what is in flight until the chain has been re-read.
+    const idle = async () => {
+      await page.waitForTimeout(150);
+      await page.getByRole("status").filter({ hasText: /confirm in your wallet|waiting for Base Sepolia/ }).waitFor({ state: "detached", timeout: WAIT * 4 });
+    };
+    const act = async (name, opts) => { await press(name, opts); await idle(); };
+    const lastEvent = () => main.locator("[data-activity] li").first().innerText();
     const shots = process.env.E2E_SHOTS;
     const shot = async (name) => { if (!shots) return; await page.waitForTimeout(300); await page.screenshot({ path: `${shots}/live-${name}.png` }); };
-    const logTop = () => page.locator("aside ol li").first().innerText();
-    const voteFor = async (nth) => { await live.getByRole("button", { name: "For", exact: true }).nth(nth).click(); await idle(); };
     const step = (text) => console.log(`  ${text}`);
+    const poolLink = (title) => main.getByRole("link", { name: title }).first();
+    const links = new Set();
+    const collect = async () => { for (const href of await main.locator('[data-activity] a[href^="https://sepolia.basescan.org/tx/0x"]').evaluateAll((as) => as.map((a) => a.href))) links.add(href); };
+    const home = async () => { await collect(); await page.goto(`${base}/#/`); await main.getByRole("heading", { name: "Pools" }).waitFor({ timeout: WAIT }); };
 
-    await press("Start the live testnet demo");
-    await press("Connect Phantom");
-    await seen("The two contracts");
-    await shot("1-connect");
-    const deployButton = live.getByRole("button", { name: "Deploy the contracts" });
-    await Promise.race([deployButton.waitFor({ timeout: WAIT }), live.getByText("Set up your sandbox").first().waitFor({ timeout: WAIT })]);
+    // The wallet sits top right. Connecting leads to the sandbox setup.
+    await page.getByRole("button", { name: /Connect Phantom/ }).click();
+    const deployButton = main.getByRole("button", { name: "Deploy the contracts" });
+    await Promise.race([deployButton.waitFor({ timeout: WAIT }), main.getByRole("button", { name: "Set up the sandbox" }).waitFor({ timeout: WAIT })]);
     if (await deployButton.isVisible()) {
-      await press("Deploy the contracts");
-      await idle();
-      assert.match(await logTop(), /Deployed PooledFunding at 0x/);
+      await act("Deploy the contracts");
       step("deployed both contracts from the page");
     } else {
       assert.ok(REAL, "a fresh local chain cannot have the contracts already");
       step("contracts already deployed");
     }
-    await seen("Set up your sandbox");
-    await shot("2-deployed");
-
+    await shot("1-setup");
     await press("Set up the sandbox");
+    await main.getByRole("heading", { name: "Pools" }).waitFor({ timeout: WAIT * 6 });
     await idle();
-    await seen("Open a pool, from either side");
-    assert.match(await logTop(), /Minted 100,000 demo USDC/);
-    step("sandbox ready: gas forwarded, space created, Points recorded, demo USDC minted");
-    await shot("3-sandbox");
+    await page.getByRole("button", { name: new RegExp(`Wallet ${wallet.address.slice(0, 6)}`, "i") }).waitFor({ timeout: WAIT });
+    assert.equal(await main.locator('a[href^="#/pool/"]').count(), 2);
+    await collect();
+    await shot("2-board");
+    step("sandbox ready: your own space, Points and demo USDC for the wallet, two sample pools open");
 
-    // A request, opened by the visitor's wallet with a first pledge, on the default 5 minute window.
-    await press("Open a request with a first pledge");
-    await idle();
-    await seen("Contributors vote (Proof of Love)");
-    assert.match(await logTop(), /Opened a request for 50,000 demo USDC with a first pledge of 10,000/);
-    await press("Try to close the vote now");
-    await idle();
-    assert.match(await logTop(), /Refused on-chain, VoteStillOpen/);
-    await voteFor(0);
-    await voteFor(1);
-    await shot("4-vote");
-    await press("Close the vote", { exact: true });
-    await idle();
-    await seen("The listing vote passed. The pool was listed.");
+    // The sample company request: refused while partial, filled, launched, paid by Points.
+    await poolLink(/e-invoicing engine/).click();
+    await seen("Open for pledges");
+    await act("Launch the build");
+    assert.match(await lastEvent(), /Refused on-chain, TargetNotReached/);
+    await act(/^Pledge 10,000 USDC/);
+    assert.match(await lastEvent(), /You[\s\S]*Pledged 10,000 demo USDC/);
+    await act("Company B pledges");
+    await act("Company C pledges");
+    await seen("Full: ready to launch");
+    await act("Launch the build");
+    await seen("If paid now");
+    await shot("3-building");
+    await act("Pay contributors by Points");
+    await seen("Paid by Points");
+    const paid = await main.locator("table").innerText();
+    assert.match(paid, /You/);
+    assert.match(paid, /49,000/);
+    await shot("4-paid");
+    step("company request: launch refused on-chain while partial, filled by three funders, paid by Points with the wallet among the payees");
 
-    await press("Try to launch now");
-    await idle();
-    assert.match(await logTop(), /Refused on-chain, TargetNotReached: All or nothing: 10,000 of 50,000/);
-    await press("Try to refund now");
-    await idle();
-    assert.match(await logTop(), /Refused on-chain, RefundNotAvailable/);
-    await press("Company B pledges");
-    await idle();
-    await press("Pledge as you");
-    await idle();
-    assert.match(await logTop(), /Pledged 20,000 demo USDC to pool #\d+/);
-    await shot("5-funding");
-    await seen("The pool is full");
-    await press("Launch the build");
-    await idle();
-    assert.match(await logTop(), /Launched pool #\d+: it held its full 50,000 demo USDC/);
-    await press("Pay contributors by Points");
-    await idle();
-    await seen("Paid out by share of project Points");
-    await seen("Contributor A: 160 Points (47.1%) → 23,058.82 demo USDC");
-    await seen("Fee wallet: 1,000 demo USDC (2%)");
-    step("pool 1: request listed, filled by three funders, launched and paid by Points");
-    await shot("6-paid");
+    // The sample contributor proposal: the wallet votes with its Points, contributors list it.
+    await home();
+    await poolLink(/feature-flag service/).click();
+    await seen("Listing vote open");
+    await act("For", { exact: true });
+    assert.match(await lastEvent(), /You[\s\S]*Voted for/);
+    await act("Close the vote");
+    assert.match(await lastEvent(), /Refused on-chain, VoteStillOpen/);
+    await act("They vote For");
+    await act("Close the vote");
+    await seen("Open for pledges");
+    await shot("5-listed");
+    step("contributor proposal: the wallet votes with its Points, closing early is refused on-chain, contributors list it");
 
-    // The other direction: a community proposal on the 1 minute window, listed, then left to miss its target.
-    await press("Open another pool");
-    await press("1 min", { exact: true });
-    await press("Propose a build as contributor A");
-    await idle();
-    await voteFor(0);
-    await voteFor(2);
-    await press("Close the vote", { exact: true });
-    await idle();
-    await press("Pledge as you");
-    await idle();
-    await press("Company B pledges");
-    await idle();
+    // The wallet proposes a build as a contributor, with a one-minute window: it misses and refunds.
+    await collect();
+    await page.goto(`${base}/#/new/proposal`);
+    await seen("Open a pool");
+    await main.getByLabel("Funding window").selectOption("1m");
+    await act("Propose the build");
+    await seen("Listing vote open");
+    assert.match(await main.locator("h1").innerText(), /status page/i);
+    await act("They vote For");
+    await act("Close the vote");
+    await seen("Open for pledges");
+    await act(/^Pledge 10,000 USDC/);
+    await shot("6-proposed");
     if (!REAL) {
-      await rpc("evm_increaseTime", [200]);
+      await rpc("evm_increaseTime", [90]);
       await rpc("evm_mine");
     }
-    await seen("Missed its target: every pledge is refundable", REAL ? 150_000 : WAIT);
-    await shot("7-missed");
-    await press("Refund everyone");
-    await idle();
-    await seen("Everyone has been refunded in full.");
-    assert.match(await logTop(), /Refunded 20,000 demo USDC to Company B from pool #\d+, in full/);
-    step("pool 2: proposal listed, missed its target at the deadline, both funders refunded in full");
+    await seen("Missed its target", REAL ? 120_000 : WAIT);
+    await act("Refund every pledge");
+    await seen("Every pledge has been refunded.");
+    assert.match(await lastEvent(), /Refunded 10,000 demo USDC to you/);
+    await shot("7-refunded");
+    step("wallet proposes a build with no money down: listed, misses its target at the deadline, refunded in full");
 
-    // A launched pool closed by vote before payout.
-    await press("Open another pool");
-    await press("5 min", { exact: true });
-    await press("Propose a build as contributor A");
-    await idle();
-    await voteFor(0);
-    await voteFor(1);
-    await press("Close the vote", { exact: true });
-    await idle();
-    for (const who of ["Pledge as you", "Company B pledges", "Company C pledges"]) { await press(who); await idle(); }
-    // Only what was still missing is taken from the last pledge.
-    assert.match(await logTop(), /Company C[\s\S]*Pledged 10,000 demo USDC to pool #\d+/);
-    await press("Launch the build");
-    await idle();
-    await press("Company B asks for a closure vote");
-    await idle();
-    await seen("Closure vote.");
-    await voteFor(0);
-    await voteFor(1);
-    await press("Close the vote", { exact: true });
-    await idle();
-    await seen("Closed by vote: every pledge is refundable");
-    await press("Refund everyone");
-    await idle();
-    await seen("Everyone has been refunded in full.");
-    step("pool 3: launched, closed by vote before payout, three funders refunded in full");
+    // The wallet requests a build as a company; the build is closed by vote before payout.
+    await collect();
+    await page.goto(`${base}/#/new/request`);
+    await seen("Open a pool");
+    await act("Open the request");
+    await seen("Listing vote open");
+    assert.match(await main.locator("h1").innerText(), /PDF signing/i);
+    await act("They vote For");
+    await act("Close the vote");
+    await act("Company B pledges");
+    await act("Company C pledges");
+    await seen("Full: ready to launch");
+    await act("Launch the build");
+    await seen("If paid now");
+    await act("Company B asks for a closure vote");
+    await seen("Closure vote open");
+    await act("Pay contributors by Points");
+    assert.match(await lastEvent(), /Refused on-chain, ClosureVoteOpen/);
+    await act("They vote For");
+    await act("Close the vote");
+    await seen("Closed by vote");
+    await act("Refund every pledge");
+    await seen("Every pledge has been refunded.");
     await shot("8-closed");
+    step("wallet requests a build with a first pledge: listed, filled, launched, closed by vote, three funders refunded");
 
     // The wallet was only ever asked for accounts, the chain id and transactions.
     const methods = [...new Set(walletCalls)].sort();
     assert.deepStrictEqual(methods, ["eth_chainId", "eth_requestAccounts", "eth_sendTransaction"]);
-    // Every transaction in the event log links to the block explorer. The log lives in memory, so it is counted before the reload.
-    const links = await page.locator('aside ol li a[href^="https://sepolia.basescan.org/tx/0x"]').count();
-    assert.ok(links >= 30, `expected the event log to link its transactions, found ${links} links`);
-    // A reload resumes the sandbox from sessionStorage.
+    await home();
+    assert.equal(await main.locator('a[href^="#/pool/"]').count(), 4);
+    await collect();
+    assert.ok(links.size >= 40, `expected the activity log to link its transactions, found ${links.size} links`);
+    // A reload resumes the sandbox from sessionStorage once the wallet is connected again.
     await page.reload({ waitUntil: REAL ? "load" : "networkidle" });
-    await press("Connect Phantom");
-    await seen("Resumed the sandbox saved in this browser tab.");
+    await page.getByRole("button", { name: /Connect Phantom/ }).click();
+    await main.locator('a[href^="#/pool/"]').nth(3).waitFor({ timeout: WAIT });
+    await poolLink(/e-invoicing engine/).click();
+    await seen("Paid by Points");
+    assert.match(await main.locator("table").innerText(), /49,000/);
     // The public endpoint answers 429 when it is busy and the page retries; those are counted, not failures.
     const busy = REAL ? errors.filter((e) => /status of 429/.test(e)).length : 0;
     const real = errors.filter((e) => !/hmr|WebSocket/.test(e) && !(REAL && /status of 429/.test(e)));
-    console.log(`LIVE E2E PASS${REAL ? ` on the real network; requests answered 429 and retried: ${busy}` : ""}; ${links} transactions linked in the event log; wallet methods: ${methods.join(", ")}; console errors: ${JSON.stringify(real)}`);
+    console.log(`LIVE E2E PASS${REAL ? ` on the real network; requests answered 429 and retried: ${busy}` : ""}; ${links.size} transactions linked in the activity log; wallet methods: ${methods.join(", ")}; console errors: ${JSON.stringify(real)}`);
     if (real.length) process.exitCode = 1;
   } catch (e) {
     console.error("LIVE E2E FAIL", e);

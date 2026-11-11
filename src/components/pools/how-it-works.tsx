@@ -1,49 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useReducer, useState } from "react";
-import { formatUsdc } from "@/lib/pools/math";
-import { type Action, type LogEntry, type Pool, type State, DOMAIN_LABEL, VOTING_DAYS, heldBy, initialState, openTally, reduce, statusOf } from "@/lib/pools/sim";
-import { type LogItem, EventLog } from "../event-log";
-import { SHELL, SiteHeader } from "../site-header";
-import { ActionButton, Badge, Panel, SampleTag } from "../ui";
+import { VOTING_DAYS } from "@/lib/pools/sim";
+import { SHELL, SiteFooter, SiteHeader } from "../site-header";
+import { Badge, Panel, SampleTag } from "../ui";
 import { useVault, VaultHeaderButton, VaultHeroButton, VaultHost } from "../vault/vault-launcher";
-import { type LiveEvent, LivePanel } from "./live/live-panel";
-import { NewPoolForm } from "./new-pool-form";
-import { KindTag, LABEL, PoolProgress, STATUS_TONE, StatusBadge, bindPools } from "./parts";
-import { PoolDetail } from "./pool-detail";
-
-const NOTICE =
-  "Independent concept demo made for the Slop team. The simulation runs in your browser; the optional live mode uses the Base Sepolia testnet only, where ETH and the demo USDC have no value. Not affiliated with or endorsed by slop.cash.";
-
-type DemoAction = Action | { type: "live"; event: LiveEvent };
-
-// Live testnet events only append to the shared log; every simulated action still goes through `reduce`.
-function reduceDemo(state: State, action: DemoAction): State {
-  if (action.type !== "live") return reduce(state, action);
-  const { time, href, ...entry } = action.event;
-  return { ...state, log: [...state.log, { seq: state.log.length + 1, day: state.day, ...entry, live: { time, href } }] };
-}
-
-const toLogItem = (e: LogEntry): LogItem => ({
-  seq: e.seq,
-  stamp: `day ${e.day}`,
-  actor: e.actor,
-  text: e.text,
-  refusal: e.refusal,
-  live: e.live && { network: "Base Sepolia", time: e.live.time, href: e.live.href, linkLabel: "View transaction on BaseScan (Base Sepolia)" },
-});
 
 const WAYS = [
   {
-    tag: "Request",
+    tag: "Company request",
     dot: "bg-accent",
     title: "A company needs it built",
     text: "It posts the need and a budget, and puts in the first pledge. Other companies with the same need add theirs.",
     sample: "Sample: e-invoicing engine, 50,000 USDC, opened by company-a with 10,000.",
   },
   {
-    tag: "Community proposal",
+    tag: "Contributor proposal",
     dot: "bg-ink",
     title: "Contributors offer to build it",
     text: "A contributor with Points proposes a build and a budget, with no money down. Funders who want it fill the pool.",
@@ -52,7 +24,7 @@ const WAYS = [
 ];
 
 const STEPS = [
-  { n: "01", title: "Propose", text: "A request with a first pledge, or a community proposal with none." },
+  { n: "01", title: "Propose", text: "A request with a first pledge, or a contributor proposal with none." },
   { n: "02", title: "Contributors vote", text: "A Proof of Love vote lists the pool, or not. Power comes from Points, never from money." },
   { n: "03", title: "The pool fills, or not", text: "Funders pledge until the deadline. Pledges are locked, so the total is real." },
   { n: "04", title: "Paid by Points, or refunded", text: "Full: the build launches and accepted work is paid. Not full: every pledge goes back." },
@@ -92,42 +64,28 @@ function Source({ href, children }: { href: string; children: string }) {
   );
 }
 
-export function PoolsDemo() {
-  const [state, dispatch] = useReducer(reduceDemo, initialState);
-  const [selected, setSelected] = useState(1);
-  const [formOpen, setFormOpen] = useState(false);
+export function HowItWorks() {
   const vault = useVault();
-  const onLiveEvent = useCallback((event: LiveEvent) => dispatch({ type: "live", event }), []);
-  const act = bindPools(state, dispatch);
-  const pool = state.pools.find((p) => p.id === selected) ?? state.pools[0];
-
-  function reset() {
-    dispatch({ type: "reset" });
-    setSelected(1);
-    setFormOpen(false);
-  }
-
   return (
     <>
-      <SiteHeader current="pools" notice={NOTICE}>
+      <SiteHeader current="how">
         <VaultHeaderButton vault={vault} />
       </SiteHeader>
 
       <main className={SHELL}>
-        <section className="py-14 sm:py-24">
-          <p className="text-[15px] font-bold text-muted">A funding idea for Slop, in both directions</p>
-          <h1 className="display mt-5 text-[clamp(2.5rem,6.4vw+0.5rem,4.625rem)] leading-[0.86]">
-            <span className="block">Fund it together.</span>
-            <span className="block text-accent">All or nothing.</span>
+        <section className="py-14 sm:py-[88px]">
+          <h1 className="display text-[clamp(2.5rem,7vw,5.75rem)] leading-[0.86]">
+            <span className="block">One pool.</span>
+            <span className="block text-accent">Two ways in.</span>
           </h1>
-          <p className="mt-8 max-w-[46rem] text-lg leading-relaxed text-muted sm:mt-10 sm:text-xl">
-            Several companies need the same open-source software. Each pledges a share of the budget. If the pool is full by its
-            deadline, the build starts on Slop and contributors are paid by Points. If it is not, every pledge goes back.
+          <p className="mt-8 max-w-[44rem] text-lg leading-relaxed text-muted sm:mt-10 sm:text-xl">
+            Several companies need the same open-source software. Each pledges a share of the budget. If the pool is full by its deadline, the
+            build starts on Slop and contributors are paid by Points. If it is not, every pledge goes back.
           </p>
 
-          <div className="mt-10 grid gap-3 sm:mt-14 md:grid-cols-2">
+          <div className="mt-10 grid gap-5 sm:mt-14 md:grid-cols-2">
             {WAYS.map((way) => (
-              <div key={way.tag} className="rounded-xl bg-surface p-5 sm:p-8">
+              <div key={way.tag} className="rounded-xl bg-surface p-6 sm:p-8">
                 <p className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted">
                   <span aria-hidden="true" className={`inline-block size-2 rounded-full ${way.dot}`} />
                   {way.tag}
@@ -139,7 +97,7 @@ export function PoolsDemo() {
             ))}
           </div>
 
-          <ol className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ol className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {STEPS.map((step) => (
               <li key={step.n} className="rounded-xl border border-line p-5 sm:p-6">
                 <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-accent">Step {step.n}</p>
@@ -149,96 +107,21 @@ export function PoolsDemo() {
             ))}
           </ol>
 
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 sm:mt-10">
+          <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <Link
+              href="/"
+              className="inline-flex min-h-12 items-center rounded-md bg-accent px-[22px] text-base font-bold text-on-accent transition-colors hover:bg-accent-hover motion-reduce:transition-none"
+            >
+              Try it on the pools page
+            </Link>
             <VaultHeroButton vault={vault} />
-            <p className="max-w-[30rem] text-[15px] leading-snug text-muted">
-              The research notes behind the governance rules. The staged path for the keys that guard the money is on the{" "}
+            <p className="max-w-[26rem] text-[15px] leading-snug text-muted">
+              The vault holds the research notes behind the governance rules. The staged path for the keys that guard the money is on the{" "}
               <Link href="/governance" className={LINK}>
                 Governance page
               </Link>
               .
             </p>
-          </div>
-        </section>
-
-        <section aria-labelledby="try-title" className="border-t border-line py-14 sm:py-24">
-          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5">
-            <div>
-              <h2 id="try-title" className="display text-[clamp(1.875rem,4vw+0.75rem,3.125rem)] leading-[0.9]">
-                Try it
-              </h2>
-              <p className="mt-4 max-w-[40rem] text-[15px] leading-relaxed text-muted">
-                Two sample pools, one per direction. Pledge as any company, vote as any contributor, move the clock, and watch
-                where the money goes. Companies, contributors, wallets and Points are sample data.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={reset}
-              className="min-h-11 shrink-0 rounded-full bg-ink px-[22px] text-base font-bold text-canvas transition-colors hover:bg-ink/85 motion-reduce:transition-none"
-            >
-              Reset demo
-            </button>
-          </div>
-
-          <div className="mt-8 grid gap-8 sm:mt-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="min-w-0 space-y-6">
-              <Panel
-                title="Simulated clock"
-                meta={
-                  <>
-                    <ActionButton {...act({ type: "advance", days: 1 })}>+1 day</ActionButton>
-                    <ActionButton {...act({ type: "advance", days: 7 })}>+7 days</ActionButton>
-                  </>
-                }
-              >
-                <p className="font-mono text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">Day {state.day}</p>
-                <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
-                  {state.pools.map((p) => (
-                    <li key={p.id}>
-                      <span className="font-mono font-bold text-ink">#{p.id}</span> {nextDate(p, state.day)}
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-[15px] font-bold text-muted">Pools</h3>
-                  <button
-                    type="button"
-                    aria-expanded={formOpen}
-                    onClick={() => setFormOpen((open) => !open)}
-                    className="min-h-11 rounded-md border border-line-strong px-4 text-[15px] font-bold transition-colors hover:bg-raised motion-reduce:transition-none"
-                  >
-                    {formOpen ? "Close the form" : "Open a new pool"}
-                  </button>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2" role="group" aria-label="Pools">
-                  {state.pools.map((p) => (
-                    <PoolCard key={p.id} pool={p} day={state.day} active={p.id === pool.id} onSelect={() => setSelected(p.id)} />
-                  ))}
-                </div>
-              </div>
-
-              {formOpen && (
-                <NewPoolForm
-                  state={state}
-                  dispatch={dispatch}
-                  onCreated={(id) => {
-                    setSelected(id);
-                    setFormOpen(false);
-                  }}
-                />
-              )}
-
-              <PoolDetail key={pool.id} state={state} pool={pool} dispatch={dispatch} />
-              <LivePanel onEvent={onLiveEvent} />
-            </div>
-            <EventLog
-              items={state.log.map(toLogItem)}
-              empty="Nothing yet. Try launching pool #1 before it is full, then pledge as company-b and company-c until it is."
-            />
           </div>
         </section>
 
@@ -328,56 +211,10 @@ export function PoolsDemo() {
         </section>
       </main>
 
-      <footer className="border-t border-line">
-        <div className={`${SHELL} py-10 text-sm leading-relaxed text-muted sm:py-14`}>
-          <p>{NOTICE}</p>
-          <p className="mt-1">
-            Companies, contributors, wallets and Points are sample data. Simulation state lives only in this tab and is gone on reload.
-            The contracts are not audited.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter>
+        <p className="mt-1">Companies, contributors, wallets and Points are sample data. The contracts are not audited.</p>
+      </SiteFooter>
       <VaultHost vault={vault} />
     </>
-  );
-}
-
-function nextDate(pool: Pool, day: number): string {
-  const status = statusOf(pool, day);
-  const vote = openTally(pool);
-  if (vote) return `${status === "voting" ? "listing" : "closure"} vote ends day ${vote.end}`;
-  if (status === "funding") return pool.pledged >= pool.target ? "full, ready to launch" : `closes day ${pool.deadline}`;
-  if (status === "building") return "building";
-  return status === "paid" ? "paid out" : "refundable";
-}
-
-function PoolCard({ pool, day, active, onSelect }: { pool: Pool; day: number; active: boolean; onSelect: () => void }) {
-  const status = statusOf(pool, day);
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onSelect}
-      className={`flex min-w-0 flex-col gap-3 rounded-xl p-4 text-left transition-colors motion-reduce:transition-none sm:p-5 ${
-        active ? "bg-surface ring-2 ring-inset ring-accent" : "ring-1 ring-inset ring-line-strong hover:bg-surface"
-      }`}
-    >
-      <span className="flex flex-wrap items-center gap-2">
-        <span className={`font-mono text-[11px] font-bold ${active ? "text-accent" : "text-muted"}`}>#{pool.id}</span>
-        <KindTag kind={pool.kind} />
-        <StatusBadge status={status} />
-      </span>
-      <span className="text-[17px] font-bold leading-snug">{pool.title}</span>
-      <span className="block">
-        <PoolProgress pledged={pool.pledged} target={pool.target} refunded={pool.refunded} tone={STATUS_TONE[status] === "danger" ? "danger" : "accent"} />
-      </span>
-      <span className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm text-muted">
-        <span className="font-mono tabular-nums">
-          <span className="font-bold text-ink">{formatUsdc(heldBy(pool))}</span> of {formatUsdc(pool.target)} USDC
-        </span>
-        <span>{DOMAIN_LABEL[pool.domain]}</span>
-      </span>
-      <span className={LABEL}>{active ? "Showing below" : nextDate(pool, day)}</span>
-    </button>
   );
 }

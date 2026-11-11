@@ -1,5 +1,5 @@
-import { PoolsDemo } from "@/components/pools/pools-demo";
+import { PoolsApp } from "@/components/pools/app/pools-app";
 
 export default function Page() {
-  return <PoolsDemo />;
+  return <PoolsApp />;
 }

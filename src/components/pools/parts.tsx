@@ -1,8 +1,8 @@
 "use client";
 
-import { type Dispatch, type ReactNode, useId } from "react";
-import { type Tally, castPower, formatPower, formatUsdc, formatUsdcRounded, percentOf, percentText, quorumMet, quorumPower } from "@/lib/pools/math";
-import { type Action, type Kind, type State, type Status, KIND_LABEL, STATUS_LABEL, refusal } from "@/lib/pools/sim";
+import { useId } from "react";
+import { type Tally, castPower, formatPower, formatUsdc, percentOf, percentText, quorumMet, quorumPower } from "@/lib/pools/math";
+import { type Status, STATUS_LABEL } from "@/lib/pools/sim";
 import { type Tone, Badge } from "../ui";
 
 export const STATUS_TONE: Record<Status, Tone> = {
@@ -19,62 +19,7 @@ export function StatusBadge({ status }: { status: Status }) {
   return <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>;
 }
 
-export function KindTag({ kind }: { kind: Kind }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-canvas px-2.5 py-1 font-mono text-[11px] font-bold uppercase leading-none tracking-wider text-ink">
-      <span aria-hidden="true" className={`inline-block size-2 rounded-full ${kind === "request" ? "bg-accent" : "bg-ink"}`} />
-      {KIND_LABEL[kind]}
-    </span>
-  );
-}
-
 export const LABEL = "font-mono text-[11px] font-bold uppercase tracking-wider text-muted";
-
-// Binds a simulated action to a button: why it would be refused right now, and the click that tries it anyway.
-export function bindPools(state: State, dispatch: Dispatch<Action>) {
-  return (action: Action) => ({ why: refusal(state, action)?.text ?? null, onClick: () => dispatch(action) });
-}
-
-export type Bound = ReturnType<typeof bindPools>;
-
-// Compact button for table rows. When blocked it still takes the click, which logs the reason.
-export function RowButton({
-  children,
-  why,
-  onClick,
-  tone = "plain",
-  pressed,
-  label,
-}: {
-  children: ReactNode;
-  why: string | null;
-  onClick: () => void;
-  tone?: "plain" | "for" | "against" | "abstain";
-  pressed?: boolean;
-  label?: string;
-}) {
-  const blocked = why !== null && !pressed;
-  const on = { plain: "bg-ink text-canvas", for: "bg-success text-on-accent", against: "bg-danger text-on-accent", abstain: "bg-muted text-on-accent" }[tone];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={pressed}
-      aria-disabled={blocked || undefined}
-      aria-label={label}
-      title={blocked ? why : undefined}
-      className={`min-h-11 whitespace-nowrap rounded-md border px-3 text-sm font-bold transition-colors motion-reduce:transition-none ${
-        pressed
-          ? `border-transparent ${on}`
-          : blocked
-            ? "cursor-not-allowed border-transparent bg-raised text-muted"
-            : "border-line-strong text-ink hover:bg-raised"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 // Pledged against target. After refunds, the part that went back is hatched.
 export function PoolProgress({ pledged, target, refunded = 0n, tone = "accent" }: { pledged: bigint; target: bigint; refunded?: bigint; tone?: Tone }) {
@@ -163,13 +108,5 @@ export function TallyBar({ tally }: { tally: Tally }) {
         {formatPower(quorumPower(tally.total))}: {quorumMet(tally) ? "met" : "not met yet"}.
       </p>
     </div>
-  );
-}
-
-export function Money({ amount, unit = "USDC" }: { amount: bigint; unit?: string }) {
-  return (
-    <span className="whitespace-nowrap font-mono tabular-nums" title={`${formatUsdc(amount)} ${unit}`}>
-      {formatUsdcRounded(amount)} <span className="text-muted">{unit}</span>
-    </span>
   );
 }

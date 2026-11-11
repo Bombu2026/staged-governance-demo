@@ -1,59 +1,84 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const SHELL = "mx-auto w-full max-w-[1440px] px-4 sm:px-8 lg:px-12 xl:px-16";
+export const SHELL = "mx-auto w-full max-w-[1276px] px-4 sm:px-8 lg:px-12";
 
 const PAGES = [
-  { id: "pools", href: "/", label: "Pooled funding" },
+  { id: "pools", href: "/", label: "Pools" },
+  { id: "how", href: "/how-it-works", label: "How it works" },
   { id: "governance", href: "/governance", label: "Governance" },
 ] as const;
 
 export type PageId = (typeof PAGES)[number]["id"];
 
-// Sticky notice and header shared by both pages: what this is, where you are, and the vault button.
-export function SiteHeader({ current, notice, children }: { current: PageId; notice: string; children?: ReactNode }) {
+export const NOTICE = "Unofficial concept demo made for the Slop team. Sample data, or the Base Sepolia testnet with a wallet. No real money. Not affiliated with or endorsed by slop.cash.";
+
+function Mark() {
+  return (
+    <svg viewBox="0 0 36 36" className="size-9 shrink-0" aria-hidden="true">
+      <rect width="36" height="36" rx="7" fill="var(--accent)" />
+      <path d="M9 24.5h18" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+      <path d="M9 24.5h11" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" />
+      <path d="M12 11v9M18 11v9M24 11v9" stroke="var(--on-accent)" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Notice, brand, page links and, on the right, whatever the page puts there: the wallet on the pools
+// page, the vault button elsewhere.
+export function SiteHeader({ current, children }: { current: PageId; children?: ReactNode }) {
+  const links = PAGES.filter((page) => page.id !== "pools");
   return (
     <div className="sticky top-0 z-30">
-      <div className="bg-raised text-ink">
-        <p role="note" className={`${SHELL} py-2 text-xs leading-snug sm:text-[13px]`}>
-          <span className="mr-2 inline-block rounded-full bg-accent px-2 py-[3px] align-[1px] font-mono text-[10px] font-bold uppercase leading-none tracking-wider text-on-accent">
-            Simulation
-          </span>
-          {notice}
-        </p>
-      </div>
-      <header className="border-b border-line bg-[rgba(15,14,12,0.88)] backdrop-blur-md">
-        <div className={`${SHELL} flex h-14 items-center justify-between gap-3 sm:h-[88px] sm:gap-6`}>
-          <div className="flex min-w-0 items-center gap-3 sm:gap-8">
-            <p className="hidden whitespace-nowrap text-lg font-extrabold leading-none tracking-[-0.03em] md:block md:text-[22px]">
-              Slop concepts
-            </p>
-            <nav aria-label="Pages" className="flex items-center gap-1 rounded-full bg-surface p-1">
-              {PAGES.map((page) => {
-                const active = page.id === current;
-                return (
-                  <Link
-                    key={page.id}
-                    href={page.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-bold leading-none transition-colors motion-reduce:transition-none sm:px-4 sm:py-2 sm:text-[15px] ${
-                      active ? "bg-ink text-canvas" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    {page.label}
-                  </Link>
-                );
-              })}
+      <p role="note" className="bg-raised px-4 py-1.5 text-center text-[11px] leading-snug text-muted sm:text-xs">
+        {NOTICE}
+      </p>
+      <header className="border-b border-line bg-[rgba(15,14,12,0.9)] backdrop-blur-md">
+        <div className={`${SHELL} flex h-16 items-center justify-between gap-3 sm:h-[88px]`}>
+          <Link href="/" aria-label="Slop pools, unofficial concept: all pools" aria-current={current === "pools" ? "page" : undefined} className="flex min-w-0 shrink-0 items-center gap-3">
+            <Mark />
+            <span className="hidden truncate text-[22px] font-extrabold leading-none tracking-[-0.03em] min-[480px]:inline">Slop pools</span>
+            <span className="hidden rounded-full border border-dashed border-line-strong px-2 py-[3px] font-mono text-[10px] font-bold uppercase leading-none tracking-wider text-muted lg:inline">
+              Unofficial concept
+            </span>
+          </Link>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <nav aria-label="Pages" className="hidden items-center gap-2 md:flex">
+              {links.map((page) => (
+                <Link
+                  key={page.id}
+                  href={page.href}
+                  aria-current={page.id === current ? "page" : undefined}
+                  className={`inline-flex h-10 items-center whitespace-nowrap rounded-md border px-4 text-[15px] font-bold transition-colors motion-reduce:transition-none ${
+                    page.id === current ? "border-ink text-ink" : "border-line-strong text-ink hover:bg-raised"
+                  }`}
+                >
+                  {page.label}
+                </Link>
+              ))}
             </nav>
-          </div>
-          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-            <p className="hidden min-w-0 text-right text-xs leading-tight text-muted lg:block lg:whitespace-nowrap lg:text-[13px]">
-              by Bombu2026 · unofficial
-            </p>
             {children}
           </div>
         </div>
+        <nav aria-label="Pages" className={`${SHELL} flex gap-4 overflow-x-auto pb-2.5 text-[13px] font-bold md:hidden`}>
+          {PAGES.map((page) => (
+            <Link key={page.id} href={page.href} aria-current={page.id === current ? "page" : undefined} className={`whitespace-nowrap ${page.id === current ? "text-ink" : "text-muted"}`}>
+              {page.label}
+            </Link>
+          ))}
+        </nav>
       </header>
     </div>
+  );
+}
+
+export function SiteFooter({ children }: { children?: ReactNode }) {
+  return (
+    <footer className="mt-10 border-t border-line">
+      <div className={`${SHELL} py-10 text-sm leading-relaxed text-muted sm:py-14`}>
+        <p>{NOTICE}</p>
+        {children}
+      </div>
+    </footer>
   );
 }

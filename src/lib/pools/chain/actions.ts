@@ -268,3 +268,70 @@ export async function readSnapshot(client: ChainClient, q: SnapshotQuery): Promi
     power: record(voters, power),
   };
 }
+
+// Everything the pools pages show for one sandbox space: every pool, who pledged what, the Points of
+// the known voters and their ballots on the votes that are open. Two batched round trips.
+export interface SpaceSnapshot {
+  // Seconds to add to the local clock to get block time.
+  chainSkew: number;
+  space: SpaceView | null;
+  pools: PoolView[];
+  eth: Record<Address, bigint>;
+  usdc: Record<Address, bigint>;
+  points: Record<Address, Points>;
+  // By pool id, then by account.
+  pledges: Record<string, Record<Address, bigint>>;
+  ballots: Record<string, Record<Address, BallotView>>;
+}
+
+export interface SpaceQuery {
+  spaceId: bigint | null;
+  accounts: readonly Address[];
+  holders: readonly Address[];
+  funders: readonly Address[];
+  voters: readonly Address[];
+}
+
+export const openVoteOf = (pool: PoolView): TallyView | null =>
+  pool.status === "voting" ? pool.listing : pool.status === "building" && pool.closure.open ? pool.closure : null;
+
+export async function readSpaceSnapshot(client: ChainClient, q: SpaceQuery): Promise<SpaceSnapshot> {
+  await assertChain(client);
+  const read = { address: POOLS_ADDRESS, abi: pooledFundingAbi } as const;
+  const spaceId = q.spaceId;
+  const [block, eth, usdc, space, poolIds, points] = await Promise.all([
+    client.getBlock({ blockTag: "latest" }),
+    Promise.all(q.accounts.map((address) => client.getBalance({ address }))),
+    Promise.all(q.holders.map((a) => client.readContract({ address: USDC_ADDRESS, abi: demoUsdcAbi, functionName: "balanceOf", args: [a] }))),
+    spaceId === null ? null : client.readContract({ ...read, functionName: "getSpace", args: [spaceId] }),
+    spaceId === null ? [] : client.readContract({ ...read, functionName: "poolIdsOf", args: [spaceId] }),
+    spaceId === null ? [] : Promise.all(q.voters.map((v) => client.readContract({ ...read, functionName: "pointsOf", args: [spaceId, v] }))),
+  ]);
+  const pools = await Promise.all(poolIds.map((id) => readPool(client, id)));
+  const voting = pools.filter((p) => openVoteOf(p) !== null);
+  const [pledges, ballots] = await Promise.all([
+    Promise.all(pools.map((p) => Promise.all(q.funders.map((f) => client.readContract({ ...read, functionName: "pledgeOf", args: [p.id, f] }))))),
+    Promise.all(voting.map((p) => Promise.all(q.voters.map((v) => client.readContract({ ...read, functionName: "ballotOf", args: [p.id, p.round, v] }))))),
+  ]);
+  return {
+    chainSkew: Number(block.timestamp) - Date.now() / 1000,
+    space: space && { steward: space.steward, feeRecipient: space.feeRecipient, votingSeconds: space.votingPeriod, totalPower: space.totalPower },
+    pools,
+    eth: record(q.accounts, eth),
+    usdc: record(q.holders, usdc),
+    points: record(
+      spaceId === null ? [] : q.voters,
+      points.map((p) => [p[0], p[1], p[2], p[3]] as Points),
+    ),
+    pledges: Object.fromEntries(pools.map((p, i) => [p.id.toString(), record(q.funders, pledges[i])])),
+    ballots: Object.fromEntries(
+      voting.map((p, i) => [
+        p.id.toString(),
+        record(
+          q.voters,
+          ballots[i].map((b) => ({ choice: CHOICES[b.choice] ?? null, power: b.power })),
+        ),
+      ]),
+    ),
+  };
+}
