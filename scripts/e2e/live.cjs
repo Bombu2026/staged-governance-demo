@@ -235,13 +235,17 @@ async function standInWallet() {
     // The wallet was only ever asked for accounts, the chain id and transactions.
     const methods = [...new Set(walletCalls)].sort();
     assert.deepStrictEqual(methods, ["eth_chainId", "eth_requestAccounts", "eth_sendTransaction"]);
+    // Every transaction in the event log links to the block explorer. The log lives in memory, so it is counted before the reload.
+    const links = await page.locator('aside ol li a[href^="https://sepolia.basescan.org/tx/0x"]').count();
+    assert.ok(links >= 30, `expected the event log to link its transactions, found ${links} links`);
     // A reload resumes the sandbox from sessionStorage.
     await page.reload({ waitUntil: REAL ? "load" : "networkidle" });
     await press("Connect Phantom");
     await seen("Resumed the sandbox saved in this browser tab.");
-    const real = errors.filter((e) => !/hmr|WebSocket/.test(e));
-    const links = await page.locator("aside ol li a").count();
-    console.log(`LIVE E2E PASS${REAL ? ` on the real network (${links} transactions linked in the event log)` : ""}; wallet methods: ${methods.join(", ")}; console errors: ${JSON.stringify(real)}`);
+    // The public endpoint answers 429 when it is busy and the page retries; those are counted, not failures.
+    const busy = REAL ? errors.filter((e) => /status of 429/.test(e)).length : 0;
+    const real = errors.filter((e) => !/hmr|WebSocket/.test(e) && !(REAL && /status of 429/.test(e)));
+    console.log(`LIVE E2E PASS${REAL ? ` on the real network; requests answered 429 and retried: ${busy}` : ""}; ${links} transactions linked in the event log; wallet methods: ${methods.join(", ")}; console errors: ${JSON.stringify(real)}`);
     if (real.length) process.exitCode = 1;
   } catch (e) {
     console.error("LIVE E2E FAIL", e);

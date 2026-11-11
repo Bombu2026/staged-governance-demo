@@ -17,7 +17,8 @@ import { type DecodedError, GuardError, decodeError } from "./errors";
 export function createChainClient(url: string = RPC_URL, pollingInterval = 1_000) {
   return createPublicClient({
     chain: baseSepolia,
-    transport: http(url, { batch: { wait: pollingInterval < 1_000 ? 0 : 20 }, retryCount: 2, timeout: 20_000 }),
+    // The public endpoint answers 429 when it is busy. Each request is retried after 0.3, 0.6, 1.2 and 2.4 s.
+    transport: http(url, { batch: { wait: pollingInterval < 1_000 ? 0 : 20 }, retryCount: 4, retryDelay: 300, timeout: 20_000 }),
     pollingInterval,
   });
 }
