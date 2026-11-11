@@ -49,6 +49,10 @@ export function DevnetPanel({ onEvent }: { onEvent: (event: DevnetEvent) => void
         2-of-3 approval and a 60 s time lock, where you hold one key in Phantom. This page adds no smart contract of its
         own; every refusal you will see comes from the audited Squads program.
       </p>
+      <p className="max-w-prose text-sm leading-relaxed text-muted">
+        Slop&apos;s vault contracts run on Base, Ethereum, Robinhood Chain and Solana. This live example uses the Solana side; on the
+        three EVM networks the same guard is a multisig wallet with a timelock in front of the upgrade key.
+      </p>
       {open ? (
         <LiveDevnet onEvent={onEvent} />
       ) : (
