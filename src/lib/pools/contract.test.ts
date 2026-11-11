@@ -438,7 +438,8 @@ describe("the wallet guard", () => {
     expect(await wallet.send({ to: demoKey, value: 7n })).toBe(hash);
     const sent = calls.filter((c) => c.method === "eth_sendTransaction").map((c) => c.params?.[0]);
     expect(sent[0]).toMatchObject({ from: me, to: USDC_ADDRESS, value: "0x0" });
-    expect(sent[2]).toEqual({ from: me, to: demoKey, data: "0x", value: "0x7" });
+    // Every request carries Base Sepolia's chain id, so a wallet on another network refuses it.
+    expect(sent[2]).toEqual({ from: me, to: demoKey, data: "0x", value: "0x7", chainId: "0x14a34" });
     expect(calls.every((c) => ["eth_chainId", "eth_sendTransaction"].includes(c.method))).toBe(true);
   });
 

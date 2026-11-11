@@ -552,9 +552,10 @@ export function LivePools({ onEvent }: { onEvent: (event: LiveEvent) => void }) 
   return (
     <div className="space-y-5">
       <Callout tone="neutral" title={`Put your wallet on ${CHAIN_NAME} first`}>
-        In Phantom, open Settings → Developer Settings → Testnet Mode and turn it on (<External href={WALLET_HELP_URL}>how</External>). You
-        also need a little {CHAIN_NAME} ETH for gas, free from a <External href={FAUCET_URL}>faucet</External>. This page checks the network
-        before every request and only sends transactions to its own two demo contracts.
+        In Phantom, open Settings → Developer Settings, turn on Testnet Mode and choose {CHAIN_NAME} as the test network (
+        <External href={WALLET_HELP_URL}>how</External>). Phantom shows and uses only the test network chosen there. You also need a little{" "}
+        {CHAIN_NAME} ETH for gas, free from a <External href={FAUCET_URL}>faucet</External>. This page checks the network before every
+        request and only sends transactions to its own two demo contracts.
       </Callout>
 
       <Step n={1} title="Connect your wallet" state={wallet ? "done" : "active"}>

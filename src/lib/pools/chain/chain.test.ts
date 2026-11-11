@@ -219,6 +219,14 @@ describe("wallets", () => {
       ),
     ).rejects.toMatchObject({ code: 4001 });
 
+    // A wallet that confirms the switch and returns to its own selected network right after.
+    chain = 46630;
+    const bounces = wallet(() => {
+      chain = CHAIN_ID;
+      setTimeout(() => void (chain = 46630), 10);
+    });
+    await expect(ensureWalletChain(bounces)).rejects.toThrow(/Robinhood Chain Testnet, not Base Sepolia.*choose Base Sepolia as the test network/);
+
     chain = CHAIN_ID;
     calls.length = 0;
     await ensureWalletChain(wallet(() => undefined));

@@ -89,7 +89,7 @@ Safety rules in the code (`src/lib/pools/chain/`):
 - Approvals are for the exact amount about to be pledged, never unlimited.
 - Before each prompt the panel lists what the transaction does. Nothing about your wallet is stored beyond its address in memory.
 
-You need a little Base Sepolia ETH for gas; the page links to the [list of faucets](https://docs.base.org/get-started/get-funds#testnet-base-sepolia). In Phantom, Base Sepolia appears once Testnet Mode is on (Settings → Developer Settings).
+You need a little Base Sepolia ETH for gas; the page links to the [list of faucets](https://docs.base.org/get-started/get-funds#testnet-base-sepolia). In Phantom, open Settings → Developer Settings, turn on Testnet Mode and choose Base Sepolia as the test network: Phantom shows and uses only the test network chosen there, and does not follow a page that asks it to switch.
 
 ### Where it meets Slop today
 

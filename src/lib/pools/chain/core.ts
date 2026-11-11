@@ -103,6 +103,17 @@ export async function walletChainId(provider: Eip1193Provider): Promise<number> 
   return Number(await provider.request({ method: "eth_chainId" }));
 }
 
+const SWITCH_SETTLE_MS = 400;
+// Only used to name the network a wallet stayed on.
+const NETWORK_NAMES: Record<number, string> = {
+  1: "Ethereum mainnet",
+  137: "Polygon",
+  8453: "Base mainnet",
+  46630: "Robinhood Chain Testnet",
+  80002: "Polygon Amoy",
+  11155111: "Ethereum Sepolia",
+};
+
 // Asks the wallet to move to Base Sepolia, adding the network when the wallet does not know it.
 export async function ensureWalletChain(provider: Eip1193Provider): Promise<void> {
   if ((await walletChainId(provider)) === CHAIN_ID) return;
@@ -132,8 +143,15 @@ export async function ensureWalletChain(provider: Eip1193Provider): Promise<void
       }
     }
   }
-  if ((await walletChainId(provider)) !== CHAIN_ID) {
-    throw new GuardError("WrongNetwork", `Your wallet is not on ${CHAIN_NAME}. Turn on its testnet mode and select ${CHAIN_NAME}, then try again.`);
+  // A wallet can confirm the switch and return to the network selected in its own settings a moment later,
+  // so the network is read again after a short pause.
+  await new Promise((resolve) => setTimeout(resolve, SWITCH_SETTLE_MS));
+  const reported = await walletChainId(provider);
+  if (reported !== CHAIN_ID) {
+    throw new GuardError(
+      "WrongNetwork",
+      `Your wallet is on ${NETWORK_NAMES[reported] ?? `network ${reported}`}, not ${CHAIN_NAME}. In Phantom, open Settings → Developer Settings, turn on testnet mode and choose ${CHAIN_NAME} as the test network, then try again.`,
+    );
   }
 }
 
@@ -155,7 +173,8 @@ export function walletSender(provider: Eip1193Provider, address: Address, gasRec
       }
       const hash = await provider.request({
         method: "eth_sendTransaction",
-        params: [{ from: address, to: tx.to, data: tx.data ?? "0x", value: numberToHex(value) }],
+        // The chain id pins the request to Base Sepolia: a wallet on another network refuses it instead of sending.
+        params: [{ from: address, to: tx.to, data: tx.data ?? "0x", value: numberToHex(value), chainId: CHAIN_ID_HEX }],
       });
       if (typeof hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(hash)) {
         throw new GuardError("NoTransactionHash", "The wallet did not return a transaction hash.");
