@@ -148,6 +148,7 @@ bun run build            # runs the vault generator, then next build
 bun run contracts        # recompile contracts/ into src/lib/pools/generated/contracts.ts
 bun run contracts:check  # fail if the committed bytecode differs from a fresh compile
 bun run contracts:deploy # deploy both contracts to Base Sepolia (needs DEPLOYER_PRIVATE_KEY)
+bun run contracts:verify # publish their source on Sourcify and Blockscout, once deployed
 bun run sepolia:check    # play three pools on the real Base Sepolia, no browser (needs CHECK_PRIVATE_KEY)
 bun run devnet:check     # headless Squads v4 check on Solana devnet (needs devnet SOL)
 ```
@@ -186,7 +187,7 @@ What has not been run: the live panel against the real Base Sepolia network with
 
 ## Layout
 
-- `contracts/` holds the two Solidity sources; `scripts/compile-contracts.mjs` compiles them with the pinned solc-js and `scripts/deploy-contracts.ts` deploys them.
+- `contracts/` holds the two Solidity sources; `scripts/compile-contracts.mjs` compiles them with the pinned solc-js, `scripts/deploy-contracts.ts` deploys them and `scripts/verify-contracts.ts` publishes their source to explorers with the same compiler input.
 - `src/lib/pools/math.ts` holds the integer rules shared by the simulation, the live mode and the tests. `src/lib/pools/sim.ts` is the simulation's pure state machine (`initialState`, `reduce`, `refusal`), with refusals named like the contract's errors.
 - `src/lib/pools/chain/` holds the live mode: constants, address derivation, the RPC and wallet guards (`core.ts`), transaction builders and readers (`actions.ts`), error decoding, wallet discovery and the session format. Functions take a client and a sender, so the tests and the deploy script drive them without a browser.
 - `src/components/pools/` holds the page: `pools-demo.tsx`, the pool detail, the new-pool form and, under `live/`, the testnet panel, which loads viem only when opened.

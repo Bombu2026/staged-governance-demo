@@ -3,34 +3,15 @@
 // The generated file is committed: the contract addresses derive from this exact bytecode (CREATE2),
 // so the web build never recompiles. `--check` fails if the committed file differs from a fresh compile.
 
-import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { SETTINGS, SOURCES, root, solc, standardInput } from "./contracts-input.mjs";
 
-const require = createRequire(import.meta.url);
-const solc = require("solc");
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(root, "src/lib/pools/generated/contracts.ts");
-const SOURCES = ["DemoUSDC.sol", "PooledFunding.sol"];
 const EXPORTS = { DemoUSDC: "demoUsdc", PooledFunding: "pooledFunding" };
 
-// "paris" keeps the bytecode free of newer opcodes, so the same build runs on Base, Ethereum and Robinhood Chain.
-const SETTINGS = {
-  optimizer: { enabled: true, runs: 200 },
-  evmVersion: "paris",
-  metadata: { bytecodeHash: "none", appendCBOR: false },
-  outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
-};
-
 function compile() {
-  const input = {
-    language: "Solidity",
-    sources: Object.fromEntries(SOURCES.map((name) => [name, { content: readFileSync(join(root, "contracts", name), "utf8") }])),
-    settings: SETTINGS,
-  };
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+  const output = JSON.parse(solc.compile(JSON.stringify(standardInput())));
   const problems = (output.errors ?? []).filter((e) => e.severity === "error" || e.severity === "warning");
   if (problems.length) {
     for (const p of problems) console.error(p.formattedMessage);
