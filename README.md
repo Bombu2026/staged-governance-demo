@@ -8,6 +8,14 @@ Three pages that accompany a proposal to the Slop team:
 - **`/how-it-works`.** The two ways in, the rules, where the idea meets Slop today and what it leaves open.
 - **`/governance` Staged governance.** Who can change the code and rules around funders' money: a multisig and a timelock on upgrades, an advisory Proof of Love vote, token governance later.
 
+To have a coding agent review the concept, paste this into it:
+
+```
+Read https://governance-demo-two.vercel.app/SKILL.md and follow it.
+```
+
+The file is `public/SKILL.md`: the idea, where the code and the deployed contract are, the checks to run and what to report. It asks for no wallet and no funds.
+
 ## Pooled funding
 
 ### The idea

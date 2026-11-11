@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { VOTING_DAYS } from "@/lib/pools/sim";
 import { SHELL, SiteFooter, SiteHeader } from "../site-header";
 import { Badge, Panel, SampleTag } from "../ui";
@@ -64,6 +65,42 @@ function Source({ href, children }: { href: string; children: string }) {
   );
 }
 
+// The one line to hand to a coding agent, as slop.cash does for its own skill. The address follows
+// the site the page is served from.
+function AgentPrompt() {
+  const [origin, setOrigin] = useState("https://governance-demo-two.vercel.app");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setOrigin(window.location.origin), []);
+  const text = `Read ${origin}/SKILL.md and follow it.`;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2_000);
+    } catch {
+      // Clipboard blocked: the text is selectable.
+    }
+  }
+  return (
+    <div className="mt-10 max-w-[44rem]">
+      <p className="text-lg text-muted">Or paste this into your coding agent to review the concept.</p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-strong bg-surface py-3 pl-5 pr-3">
+        <code className="min-w-0 break-words font-mono text-[15px] font-medium">{text}</code>
+        <button
+          type="button"
+          onClick={copy}
+          className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-accent px-5 text-base font-bold text-on-accent transition-colors hover:bg-accent-hover motion-reduce:transition-none"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <p aria-live="polite" className="sr-only">
+        {copied ? "Copied to the clipboard" : ""}
+      </p>
+    </div>
+  );
+}
+
 export function HowItWorks() {
   const vault = useVault();
   return (
@@ -123,6 +160,7 @@ export function HowItWorks() {
               .
             </p>
           </div>
+          <AgentPrompt />
         </section>
 
         <section aria-labelledby="rules-title" className="border-t border-line py-14 sm:py-24">
