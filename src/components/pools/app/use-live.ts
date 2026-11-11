@@ -52,7 +52,9 @@ import { type CastGroup, type Cmd, type Engine, type Hints, type Person, type Po
 
 const YOU = "You";
 const ANYONE = "Anyone (demo key)";
-const REFRESH_MS = 8_000;
+// Every action re-reads the chain itself and countdowns tick locally, so the background re-read can be
+// slow. The public endpoint limits how often it is asked.
+const REFRESH_MS = 15_000;
 
 const ROLE_LABEL: Record<DemoRole, string> = {
   steward: "Steward (demo key)",
@@ -217,6 +219,7 @@ export function useLive() {
   const [log, setLog] = useState<LogItem[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const seq = useRef(0);
+  const deployedOnce = useRef<Deployment | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -263,7 +266,10 @@ export function useLive() {
   const refresh = useCallback(async () => {
     if (!visitor || !keys) return;
     try {
-      const [deployed, price] = await Promise.all([readDeployment(client), client.getGasPrice()]);
+      // Once both contracts are there they stay: their code is not read again.
+      const known = deployedOnce.current;
+      const [deployed, price] = await Promise.all([known ?? readDeployment(client), client.getGasPrice()]);
+      if (deployed.usdc && deployed.pools) deployedOnce.current = deployed;
       setDeployment(deployed);
       setGasPrice(price);
       if (deployed.usdc && deployed.pools) {

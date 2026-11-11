@@ -201,9 +201,9 @@ E2E_NETWORK=base-sepolia E2E_PRIVATE_KEY=0x... bun run e2e:live
 
 On 11 November 2026 `sepolia:check` passed on Base Sepolia with 60 transactions. Three of them: the [payout by Points](https://sepolia.basescan.org/tx/0x7f21bcc8e12d009f2e1e00b64d0cdf8454fec7235154bce626312c47c5021ab8) of the first pool (23,058.823529, 8,647.058823 and 17,294.117648 demo USDC, plus the 1,000 fee), the [refund](https://sepolia.basescan.org/tx/0x0759a64bf1913ad4200468a78e389b0466e948ad2ddcf626b912ca6dd1ae6767) after the second pool missed its target, and the refused [second refund](https://sepolia.basescan.org/tx/0x355989aba13aae39bdf5acaca6c5b52d83ef938dece8e2c8187edaefcfdee249) of the same pledge (`NothingToRefund`).
 
-The same day `e2e:live` passed against the real network: the page played the three pools with nothing intercepted and linked 47 transactions in its event log. The public endpoint answered 429 (too many requests) to 6 of the page's requests in that run and to 18 in an earlier one; the page retried each of them, and now retries up to four times.
+The same day `e2e:live` passed against the real network with the current interface and nothing intercepted: the sandbox setup, the two sample pools, then one pool opened from each side by the wallet, with 45 transactions linked in the activity list. A first run had shown an empty board for a few seconds after the setup; that is fixed. The public endpoint answered 429 (too many requests) to 29 of the page's requests in that run; the page retried each of them. The page has since been made to ask less often.
 
-What has not been run to the end: the live panel with a real Phantom wallet. A first real connection showed that Phantom must have Base Sepolia chosen as its test network; the page and this README now say so.
+What has not been run to the end: the pools page with a real Phantom wallet. A first real connection showed that Phantom must have Base Sepolia chosen as its test network; the page and this README now say so.
 
 ## Layout
 
