@@ -15,7 +15,7 @@ export const CREATE2_DEPLOYER_CODE =
 export const DEPLOY_SALT = "0x706f6f6c65642d66756e64696e672d64656d6f3a763100000000000000000000";
 
 export const WALLET_HELP_URL = "https://help.phantom.com/hc/en-us/articles/5997313271699";
-export const FAUCET_URL = "https://docs.base.org/base-chain/tools/network-faucets";
+export const FAUCET_URL = "https://docs.base.org/get-started/get-funds#testnet-base-sepolia";
 export const PHANTOM_URL = "https://phantom.app";
 
 // The sandbox a visitor runs: short periods so the whole story fits in a few minutes.
