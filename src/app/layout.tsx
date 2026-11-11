@@ -6,9 +6,9 @@ const bricolage = Bricolage_Grotesque({ subsets: ["latin"], axes: ["opsz"], vari
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
-  title: "Staged governance: a concept demo for Slop",
+  title: "Pooled funding: a concept demo for Slop",
   description:
-    "Independent concept demo of a staged governance path: multisig and timelock on upgrades, an advisory Proof of Love vote, token governance later. The simulation runs in your browser; an optional live mode uses Solana devnet only. Not affiliated with or endorsed by slop.cash.",
+    "Independent concept demo of all-or-nothing pooled funding for open-source builds: several funders fill a pool, contributors list it with a Proof of Love vote, and it is paid by Points or refunded in full. The simulation runs in your browser; an optional live mode uses the Base Sepolia testnet only. Not affiliated with or endorsed by slop.cash.",
   robots: { index: false, follow: false },
 };
 

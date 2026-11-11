@@ -2,8 +2,10 @@
 
 import { type KeyboardEvent, useCallback, useReducer, useState } from "react";
 import { type Action, type State, initialState, reduce } from "@/lib/governance";
+import { explorerTxUrl } from "@/lib/devnet/format";
 import { type DevnetEvent, DevnetPanel } from "./devnet/devnet-panel";
-import { EventLog } from "./event-log";
+import { type LogItem, EventLog } from "./event-log";
+import { SHELL, SiteHeader } from "./site-header";
 import { StageToken } from "./stage-token";
 import { StageUpgrade } from "./stage-upgrade";
 import { StageVote } from "./stage-vote";
@@ -20,8 +22,6 @@ const STAGES = [
 
 type StageId = (typeof STAGES)[number]["id"];
 
-const SHELL = "mx-auto w-full max-w-[1440px] px-4 sm:px-8 lg:px-12 xl:px-16";
-
 type DemoAction = Action | { type: "devnet"; event: DevnetEvent };
 
 // Live devnet events only append to the shared log; every simulated action still goes through `reduce`.
@@ -30,6 +30,20 @@ function reduceDemo(state: State, action: DemoAction): State {
   const { time, signature, ...entry } = action.event;
   return { ...state, log: [...state.log, { seq: state.log.length + 1, hour: state.clock, ...entry, devnet: { time, signature } }] };
 }
+
+const toLogItem = (e: State["log"][number]): LogItem => ({
+  seq: e.seq,
+  stamp: `h${String(e.hour).padStart(3, "0")}`,
+  actor: e.actor,
+  text: e.text,
+  refusal: e.refusal,
+  live: e.devnet && {
+    network: "Devnet",
+    time: e.devnet.time,
+    href: e.devnet.signature ? explorerTxUrl(e.devnet.signature) : null,
+    linkLabel: "View transaction on Solana Explorer (devnet)",
+  },
+});
 
 export function Demo() {
   const [state, dispatch] = useReducer(reduceDemo, initialState);
@@ -47,29 +61,9 @@ export function Demo() {
 
   return (
     <>
-      <div className="sticky top-0 z-30">
-        <div className="bg-raised text-ink">
-          <p role="note" className={`${SHELL} py-2 text-xs leading-snug sm:text-[13px]`}>
-            <span className="mr-2 inline-block rounded-full bg-accent px-2 py-[3px] align-[1px] font-mono text-[10px] font-bold uppercase leading-none tracking-wider text-on-accent">
-              Simulation
-            </span>
-            {NOTICE}
-          </p>
-        </div>
-        <header className="border-b border-line bg-[rgba(15,14,12,0.88)] backdrop-blur-md">
-          <div className={`${SHELL} flex h-14 items-center justify-between gap-4 sm:h-[88px]`}>
-            <p className="whitespace-nowrap text-lg font-extrabold leading-none tracking-[-0.03em] sm:text-[22px]">
-              Governance concept
-            </p>
-            <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-              <p className="min-w-0 text-right text-xs leading-tight text-muted sm:whitespace-nowrap sm:text-[13px]">
-                by Bombu2026 · unofficial
-              </p>
-              <VaultHeaderButton vault={vault} />
-            </div>
-          </div>
-        </header>
-      </div>
+      <SiteHeader current="governance">
+        <VaultHeaderButton vault={vault} />
+      </SiteHeader>
 
       <main className={SHELL}>
         <section className="py-14 sm:py-24">
@@ -155,7 +149,10 @@ export function Demo() {
                 </div>
               ))}
             </div>
-            <EventLog log={state.log} />
+            <EventLog
+              items={state.log.map(toLogItem)}
+              empty="Nothing yet. Start in stage 1: try an upgrade with the single key, then switch to the proposed setup."
+            />
           </div>
         </section>
       </main>
